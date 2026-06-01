@@ -1,0 +1,19 @@
+[
+  {
+    "id": 1,
+    "name": "Эпинефрин",
+    "max_price_per_unit": 1799,
+    "type": "consumable",
+    "batch_mode": true,
+    "batch_size": 10,
+    "enabled": true
+  },
+  {
+    "id": 2,
+    "name": "Тазер",
+    "max_price_per_unit": 2799,
+    "type": "weapon",
+    "batch_mode": false,
+    "enabled": true
+  }
+]

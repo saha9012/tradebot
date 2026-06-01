@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Items — Управление базой</title>
+<style>
+  :root{
+    --bg:#0b0710; --panel:#111018; --accent:#6b3eff; --muted:#9aa0b4; --text:#e6e9f2;
+  }
+  body{background:linear-gradient(180deg,#05030a 0%, #0b0710 100%); color:var(--text); font-family:Inter,Segoe UI,Roboto,Arial; margin:0; padding:18px;}
+  .container{max-width:1100px; margin:0 auto;}
+  h1{font-size:20px; margin:8px 0 18px; color:var(--accent);}
+  .panel{background:var(--panel); border-radius:10px; padding:14px; box-shadow:0 6px 20px rgba(0,0,0,0.6);}
+  table{width:100%; border-collapse:collapse; margin-top:12px;}
+  th,td{padding:10px; text-align:left; border-bottom:1px solid rgba(255,255,255,0.03); font-size:13px;}
+  th{color:var(--muted); font-weight:600; font-size:12px;}
+  .controls{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  input[type=text], input[type=number], select {background:#0a0a0f; border:1px solid rgba(255,255,255,0.04); color:var(--text); padding:8px 10px; border-radius:8px;}
+  button{background:var(--accent); color:white; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:600;}
+  button.ghost{background:transparent; border:1px solid rgba(255,255,255,0.06); color:var(--muted);}
+  .small{padding:6px 8px; font-size:13px;}
+  .right{float:right;}
+  .muted{color:var(--muted); font-size:13px;}
+  .switch{display:inline-flex; align-items:center; gap:8px;}
+  .actions button{margin-right:8px;}
+  label{font-size:13px; color:var(--muted); display:block; margin-bottom:6px;}
+  .form-grid{display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:12px;}
+  @media(max-width:800px){ .form-grid{grid-template-columns:1fr;} th,td{font-size:12px} }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>База предметов — Market Bot (новая версия)</h1>
+
+  <div class="panel">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <div class="muted">Управление предметами, которые бот будет сканить/покупать/перепродавать</div>
+      </div>
+      <div>
+        <button id="refreshBtn" class="small ghost">Обновить</button>
+        <button id="addToggle" class="small">Добавить предмет</button>
+      </div>
+    </div>
+
+    <div id="addForm" style="margin-top:14px; display:none;">
+      <div class="form-grid">
+        <div>
+          <label>Название (точно как в маркете)</label>
+          <input id="f_name" type="text" placeholder="Эпинефрин" />
+        </div>
+        <div>
+          <label>Максимальная цена (per unit)</label>
+          <input id="f_max" type="number" placeholder="1799" />
+        </div>
+        <div>
+          <label>Тип / batch</label>
+          <select id="f_type">
+            <option value="consumable">consumable (порционный)</option>
+            <option value="weapon">weapon (есть quality)</option>
+          </select>
+        </div>
+        <div>
+          <label>batch_mode (для consumable)</label>
+          <select id="f_batch">
+            <option value="true">true</option>
+            <option value="false" selected>false</option>
+          </select>
+        </div>
+        <div>
+          <label>batch_size (если batch_mode)</label>
+          <input id="f_batch_size" type="number" value="10" />
+        </div>
+        <div>
+          <label>enabled</label>
+          <select id="f_enabled">
+            <option value="true" selected>true</option>
+            <option value="false">false</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <button id="saveNew" class="small">Сохранить предмет</button>
+        <button id="cancelNew" class="small ghost">Отмена</button>
+      </div>
+    </div>
+
+    <table id="itemsTable">
+      <thead>
+        <tr><th>Название</th><th>Тип</th><th>batch</th><th>batch_size</th><th>max_price</th><th>enabled</th><th>Действия</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div style="margin-top:10px;" class="muted">Подсказка: добавь предметы, бот будет брать их из этого списка при сканировании.</div>
+  </div>
+</div>
+
+<script>
+const apiRoot = "/items";
+
+function el(q){ return document.querySelector(q) }
+function createEl(tag, attrs={}){ const e = document.createElement(tag); Object.entries(attrs).forEach(([k,v])=> e.setAttribute(k,v)); return e; }
+
+async function fetchItems(){
+  const res = await fetch(apiRoot);
+  return await res.json();
+}
+
+function renderItems(items){
+  const tbody = el("#itemsTable tbody");
+  tbody.innerHTML = "";
+  items.forEach(item => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${item.name}</td>
+      <td>${item.type || ""}</td>
+      <td>${item.batch_mode ? "yes" : "no"}</td>
+      <td>${item.batch_size || ""}</td>
+      <td>${item.max_price_per_unit || item.maxPrice || ""}</td>
+      <td>${item.enabled ? "✓" : ""}</td>
+      <td class="actions"></td>
+    `;
+    const actionsTd = tr.querySelector(".actions");
+    const btnEdit = createEl("button"); btnEdit.textContent = "Edit"; btnEdit.className="small ghost";
+    const btnDel = createEl("button"); btnDel.textContent = "Delete"; btnDel.className="small";
+    btnEdit.onclick = ()=> openEdit(item);
+    btnDel.onclick = ()=> removeItem(item.id);
+    actionsTd.appendChild(btnEdit); actionsTd.appendChild(btnDel);
+    tbody.appendChild(tr);
+  });
+}
+
+async function loadAndRender(){
+  const items = await fetchItems();
+  renderItems(items);
+}
+
+function toggleAddForm(show){
+  el("#addForm").style.display = show ? "block" : "none";
+}
+
+el("#addToggle").addEventListener("click", ()=> toggleAddForm(true));
+el("#cancelNew").addEventListener("click", ()=> toggleAddForm(false));
+el("#refreshBtn").addEventListener("click", loadAndRender);
+
+el("#saveNew").addEventListener("click", async ()=>{
+  const name = el("#f_name").value.trim();
+  const max = parseFloat(el("#f_max").value) || 0;
+  const type = el("#f_type").value;
+  const batch_mode = el("#f_batch").value === "true";
+  const batch_size = parseInt(el("#f_batch_size").value) || 1;
+  const enabled = el("#f_enabled").value === "true";
+
+  if(!name){ alert("Введите название"); return; }
+
+  const payload = {
+    name: name,
+    type: type,
+    batch_mode: batch_mode,
+    batch_size: batch_size,
+    max_price_per_unit: max,
+    enabled: enabled
+  };
+
+  const res = await fetch(apiRoot, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(payload)
+  });
+  if(res.ok){
+    toggleAddForm(false);
+    document.querySelectorAll("#addForm input").forEach(i=>i.value="");
+    loadAndRender();
+  } else {
+    alert("Ошибка при создании предмета");
+  }
+});
+
+// Удаление
+async function removeItem(id){
+  if(!confirm("Удалить предмет?")) return;
+  const res = await fetch(apiRoot + "/" + id, { method: "DELETE" });
+  if(res.ok) loadAndRender();
+}
+
+// Редактирование (простейший prompt-редактор)
+function openEdit(item){
+  const newName = prompt("Название", item.name);
+  if(newName === null) return;
+  const newMax = prompt("max_price_per_unit", item.max_price_per_unit || item.maxPrice || 0);
+  if(newMax === null) return;
+  const updated = {...item, name: newName, max_price_per_unit: parseFloat(newMax)};
+  fetch(apiRoot + "/" + item.id, {
+    method: "PUT",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(updated)
+  }).then(r=>{ if(r.ok) loadAndRender(); else alert("Ошибка обновления"); });
+}
+
+// init
+loadAndRender();
+</script>
+</body>
+</html>

@@ -1,0 +1,199 @@
+﻿const express = require('express');
+const { all, get, run } = require('../db/database');
+const { gameToAppId } = require('../providers/steam/priceFetcher');
+
+function createApiRouter(db, accountPool, botEngine) {
+  const router = express.Router();
+  const priceFetcher = botEngine.priceFetcher;
+
+  router.get('/health', (req, res) => {
+    res.json({ ok: true, service: 'steam-bot-server' });
+  });
+
+  router.get('/bot/status', async (req, res, next) => {
+    try {
+      const running = await botEngine.isRunning();
+      res.json({
+        running,
+        emergencyStop: botEngine.emergencyStop,
+        rateLimiterPaused: botEngine.rateLimiter.isPaused(),
+        sessions: accountPool.listStatuses(),
+      });
+    } catch (e) { next(e); }
+  });
+
+  router.post('/bot/start', async (req, res, next) => {
+    try { res.json(await botEngine.start()); } catch (e) { next(e); }
+  });
+
+  router.post('/bot/stop', async (req, res, next) => {
+    try { res.json(await botEngine.stop()); } catch (e) { next(e); }
+  });
+
+  router.post('/bot/emergency-stop', async (req, res, next) => {
+    try { res.json(await botEngine.emergencyStopAll()); } catch (e) { next(e); }
+  });
+
+  router.post('/bot/rate-limiter/resume', async (req, res, next) => {
+    try {
+      botEngine.rateLimiter.resume();
+      res.json({ ok: true });
+    } catch (e) { next(e); }
+  });
+
+  router.get('/accounts', async (req, res, next) => {
+    try {
+      const rows = await all(db, `SELECT a.*, s.config_json FROM accounts a
+        LEFT JOIN strategy_config s ON s.account_id = a.id ORDER BY a.id`);
+      res.json(rows.map((r) => ({
+        ...r,
+        enabled: Boolean(r.enabled),
+        strategy: r.config_json ? JSON.parse(r.config_json) : null,
+        config_json: undefined,
+      })));
+    } catch (e) { next(e); }
+  });
+
+  router.post('/accounts', async (req, res, next) => {
+    try {
+      const { id, label, game, credentials_env } = req.body;
+      if (!id || !label || !game || !credentials_env) {
+        return res.status(400).json({ error: 'id, label, game, credentials_env required' });
+      }
+      const { DEFAULT_STRATEGY } = require('../strategy/defaults');
+      await run(db, `INSERT INTO accounts (id, label, game, credentials_env, enabled) VALUES (?, ?, ?, ?, 0)`,
+        [id, label, game, credentials_env]);
+      await run(db, `INSERT INTO strategy_config (account_id, config_json) VALUES (?, ?)`,
+        [id, JSON.stringify(DEFAULT_STRATEGY[game] || DEFAULT_STRATEGY.dota)]);
+      res.status(201).json({ ok: true, id });
+    } catch (e) { next(e); }
+  });
+
+  router.get('/accounts/:id', async (req, res, next) => {
+    try {
+      const row = await get(db, `SELECT a.*, s.config_json FROM accounts a
+        LEFT JOIN strategy_config s ON s.account_id = a.id WHERE a.id = ?`, [req.params.id]);
+      if (!row) return res.status(404).json({ error: 'Account not found' });
+      res.json({ ...row, enabled: Boolean(row.enabled), strategy: JSON.parse(row.config_json) });
+    } catch (e) { next(e); }
+  });
+
+  router.put('/accounts/:id/strategy', async (req, res, next) => {
+    try {
+      const config = req.body;
+      await run(db, `UPDATE strategy_config SET config_json = ?, updated_at = datetime('now') WHERE account_id = ?`,
+        [JSON.stringify(config), req.params.id]);
+      res.json({ ok: true });
+    } catch (e) { next(e); }
+  });
+
+  router.post('/accounts/:id/login', async (req, res, next) => {
+    try {
+      const acc = await get(db, 'SELECT * FROM accounts WHERE id = ?', [req.params.id]);
+      if (!acc) return res.status(404).json({ error: 'Account not found' });
+      const result = await accountPool.login(acc.id, acc.credentials_env);
+      res.json(result);
+    } catch (e) { next(e); }
+  });
+
+  router.post('/accounts/:id/logout', async (req, res, next) => {
+    try {
+      res.json(await accountPool.logout(req.params.id));
+    } catch (e) { next(e); }
+  });
+
+  router.post('/accounts/:id/refresh-wallet', async (req, res, next) => {
+    try {
+      res.json(await accountPool.refreshWallet(req.params.id));
+    } catch (e) { next(e); }
+  });
+
+  router.patch('/accounts/:id', async (req, res, next) => {
+    try {
+      const { enabled, wallet_balance, label } = req.body;
+      const updates = [];
+      const params = [];
+      if (enabled !== undefined) { updates.push('enabled = ?'); params.push(enabled ? 1 : 0); }
+      if (wallet_balance !== undefined) { updates.push('wallet_balance = ?'); params.push(wallet_balance); }
+      if (label !== undefined) { updates.push('label = ?'); params.push(label); }
+      if (!updates.length) return res.status(400).json({ error: 'Nothing to update' });
+      params.push(req.params.id);
+      await run(db, `UPDATE accounts SET ${updates.join(', ')} WHERE id = ?`, params);
+      res.json({ ok: true });
+    } catch (e) { next(e); }
+  });
+
+  router.get('/market/:game/:hashName', async (req, res, next) => {
+    try {
+      const appId = gameToAppId(req.params.game);
+      const session = accountPool.getSession('account-1');
+      const cookies = session?.cookieHeader || '';
+      const data = await priceFetcher.fetchItem(appId, decodeURIComponent(req.params.hashName), cookies);
+      res.json(data);
+    } catch (e) { next(e); }
+  });
+
+  router.get('/market/search', async (req, res, next) => {
+    try {
+      const game = req.query.game || 'dota';
+      const appId = gameToAppId(game);
+      const accountId = req.query.accountId || 'account-1';
+      const session = accountPool.getSession(accountId);
+      if (!session?.community) {
+        return res.status(401).json({ error: 'Login required for market search' });
+      }
+      const { results, totalCount } = await priceFetcher.searchMarket(
+        session.community,
+        appId,
+        req.query.q || '',
+        Number(req.query.start) || 0
+      );
+      res.json({ results, totalCount, appId });
+    } catch (e) { next(e); }
+  });
+
+  router.get('/trades', async (req, res, next) => {
+    try {
+      const limit = Math.min(Number(req.query.limit) || 50, 200);
+      const rows = await all(db, 'SELECT * FROM trades ORDER BY id DESC LIMIT ?', [limit]);
+      res.json(rows);
+    } catch (e) { next(e); }
+  });
+
+  router.get('/logs', async (req, res, next) => {
+    try {
+      const limit = Math.min(Number(req.query.limit) || 100, 500);
+      const accountId = req.query.accountId;
+      let rows;
+      if (accountId) {
+        rows = await all(db, 'SELECT * FROM audit_log WHERE account_id = ? ORDER BY id DESC LIMIT ?', [accountId, limit]);
+      } else {
+        rows = await all(db, 'SELECT * FROM audit_log ORDER BY id DESC LIMIT ?', [limit]);
+      }
+      res.json(rows.map((r) => ({ ...r, meta: r.meta_json ? JSON.parse(r.meta_json) : null, meta_json: undefined })));
+    } catch (e) { next(e); }
+  });
+
+  router.get('/dashboard', async (req, res, next) => {
+    try {
+      const accounts = await all(db, 'SELECT id, label, game, enabled, status, wallet_balance FROM accounts ORDER BY id');
+      const pnlToday = await get(db, `SELECT COALESCE(SUM(profit), 0) as total FROM trades WHERE date(created_at) = date('now') AND dry_run = 0`);
+      const pnlWeek = await get(db, `SELECT COALESCE(SUM(profit), 0) as total FROM trades WHERE created_at >= datetime('now', '-7 days') AND dry_run = 0`);
+      const running = await botEngine.isRunning();
+      const recentTrades = await all(db, 'SELECT * FROM trades ORDER BY id DESC LIMIT 5');
+      res.json({
+        running,
+        emergencyStop: botEngine.emergencyStop,
+        totalWallet: accounts.reduce((s, a) => s + (a.wallet_balance || 0), 0),
+        pnlToday: pnlToday?.total || 0,
+        pnlWeek: pnlWeek?.total || 0,
+        accounts: accounts.map((a) => ({ ...a, enabled: Boolean(a.enabled) })),
+        recentTrades,
+      });
+    } catch (e) { next(e); }
+  });
+
+  return router;
+}
+
+module.exports = { createApiRouter };

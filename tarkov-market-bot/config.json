@@ -1,0 +1,21 @@
+{
+  "marketplaceUrl": "https://example.com/market/favorites",
+  "headless": false,
+  "testMode": true,
+  "pollIntervalMs": 800,
+  "maxConcurrentChecks": 1,
+  "selectors": {
+    "favoritesList": ".favorites-list",
+    "favoriteItem": ".favorite-item",
+    "cardPrice": ".card .price",
+    "openCard": ".open-card",
+    "detailPrice": ".detail .price",
+    "buyButton": ".btn-buy",
+    "confirmBuy": ".btn-confirm",
+    "sellButton": ".btn-sell",
+    "sellPriceInput": "input[name=price]"
+  },
+  "listingFeePerUnit": 20.0,
+  "dailyBuyLimit": 20,
+  "randomClickJitter": 6
+}

@@ -1,0 +1,15 @@
+{
+  "name": "steam-bot-items",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["packages/server", "packages/web"],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w @steam-bot/server\" \"npm run dev -w @steam-bot/web\"",
+    "dev:server": "npm run dev -w @steam-bot/server",
+    "dev:web": "npm run dev -w @steam-bot/web",
+    "start": "npm run start -w @steam-bot/server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

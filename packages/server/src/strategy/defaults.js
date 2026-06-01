@@ -1,0 +1,26 @@
+﻿const BASE = {
+  feePercent: 15,
+  minProfitAbsolute: 0.1,
+  maxProfitPercent: 34,
+  maxProfitPercentHighTier: 24,
+  highTierPriceFrom: 200,
+  minLiquidity: 15,
+  undercutStep: 0.01,
+  balanceThreshold: 5000,
+  maxSpendPerDay: 5000,
+  maxBuyOrders: 10,
+  relistMorning: '08:00',
+  relistAfternoon: '14:00',
+  relistEvening: '20:00',
+  dryRun: true,
+};
+
+const DEFAULT_STRATEGY = {
+  dota: { ...BASE, game: 'dota', enabled: true, maxItemPrice: 200 },
+  cs2: { ...BASE, game: 'cs2', enabled: false, maxItemPrice: 500, holdDays: 7 },
+  rust: { ...BASE, game: 'rust', enabled: false, maxItemPrice: 500, targetMarginPercent: 20 },
+};
+
+const APP_IDS = { dota: 570, cs2: 730, rust: 252490 };
+
+module.exports = { BASE, DEFAULT_STRATEGY, APP_IDS };

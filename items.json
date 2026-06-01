@@ -1,0 +1,10 @@
+[
+  {
+    "id": 1,
+    "name": "AK-47 | Redline (Field-Tested)",
+    "minPrice": 300,
+    "maxPrice": 500,
+    "targetProfitPercent": 10,
+    "enabled": true
+  }
+]
