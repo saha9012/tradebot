@@ -11,29 +11,45 @@ export default function History() {
 
   return (
     <>
-      <h1 className="page-title">History</h1>
+      <h1 className="page-title">
+        <span className="text-gradient">Сделки</span>
+      </h1>
       <GlassCard>
-        <table>
-          <thead>
-            <tr><th>ID</th><th>Time</th><th>Account</th><th>Game</th><th>Action</th><th>Item</th><th>Price</th><th>Profit</th><th>Dry</th></tr>
-          </thead>
-          <tbody>
-            {trades.map((t) => (
-              <tr key={t.id}>
-                <td>{t.id}</td>
-                <td>{new Date(t.created_at).toLocaleString('ru')}</td>
-                <td>{t.account_id}</td>
-                <td>{t.game}</td>
-                <td>{t.action}</td>
-                <td>{t.market_hash_name || '—'}</td>
-                <td>{t.price ?? '—'}</td>
-                <td>{t.profit ?? '—'}</td>
-                <td>{t.dry_run ? 'yes' : 'no'}</td>
+        <div className="overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Время</th>
+                <th>Аккаунт</th>
+                <th>Игра</th>
+                <th>Действие</th>
+                <th>Предмет</th>
+                <th>Цена</th>
+                <th>Прибыль</th>
+                <th>Тест</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {trades.length === 0 && <p style={{ color: 'var(--text-muted)', padding: 16 }}>No trades yet.</p>}
+            </thead>
+            <tbody>
+              {trades.map((t) => (
+                <tr key={t.id}>
+                  <td>{t.id}</td>
+                  <td>{new Date(t.created_at).toLocaleString('ru')}</td>
+                  <td>{t.account_id}</td>
+                  <td>{t.game}</td>
+                  <td>{t.action}</td>
+                  <td className="max-w-[180px] truncate">{t.market_hash_name || '—'}</td>
+                  <td>{t.price ?? '—'}</td>
+                  <td>{t.profit ?? '—'}</td>
+                  <td>{t.dry_run ? 'да' : 'нет'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {trades.length === 0 && (
+          <p className="py-4 text-sm text-white/40">Сделок пока нет.</p>
+        )}
       </GlassCard>
     </>
   );

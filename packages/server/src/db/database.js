@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { dbPath } = require('../config');
 const { DEFAULT_STRATEGY } = require('../strategy/defaults');
+const { actionRu, translateError } = require('../util/auditMessages');
 
 function openDb() {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -87,15 +88,24 @@ async function initDatabase() {
     }
   }
 
-  const botRunning = await get(db, "SELECT value FROM bot_state WHERE key = 'running'");
-  if (!botRunning) await run(db, "INSERT INTO bot_state (key, value) VALUES ('running', 'false')");
+  const states = [
+    ['running', 'false'],
+    ['running_scan', 'false'],
+    ['running_sell', 'false'],
+  ];
+  for (const [key, value] of states) {
+    const row = await get(db, 'SELECT value FROM bot_state WHERE key = ?', [key]);
+    if (!row) await run(db, 'INSERT INTO bot_state (key, value) VALUES (?, ?)', [key, value]);
+  }
 
   return db;
 }
 
 async function logAudit(db, { accountId, level, action, message, meta }) {
+  const ruAction = actionRu(action);
+  const ruMessage = message ? translateError(message) : null;
   await run(db, `INSERT INTO audit_log (account_id, level, action, message, meta_json) VALUES (?, ?, ?, ?, ?)`,
-    [accountId || null, level || 'info', action, message || null, meta ? JSON.stringify(meta) : null]);
+    [accountId || null, level || 'info', ruAction, ruMessage, meta ? JSON.stringify(meta) : null]);
 }
 
 module.exports = { openDb, run, get, all, initDatabase, logAudit };

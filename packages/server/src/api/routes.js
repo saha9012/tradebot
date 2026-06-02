@@ -1,6 +1,7 @@
 ﻿const express = require('express');
 const { all, get, run } = require('../db/database');
 const { gameToAppId } = require('../providers/steam/priceFetcher');
+const { mergeStrategyConfig, DEFAULT_STRATEGY } = require('../strategy/defaults');
 
 function createApiRouter(db, accountPool, botEngine) {
   const router = express.Router();
@@ -12,9 +13,12 @@ function createApiRouter(db, accountPool, botEngine) {
 
   router.get('/bot/status', async (req, res, next) => {
     try {
-      const running = await botEngine.isRunning();
+      const runningScan = await botEngine.isScanRunning();
+      const runningSell = await botEngine.isSellRunning();
       res.json({
-        running,
+        running: runningScan,
+        runningScan,
+        runningSell,
         emergencyStop: botEngine.emergencyStop,
         rateLimiterPaused: botEngine.rateLimiter.isPaused(),
         sessions: accountPool.listStatuses(),
@@ -22,8 +26,24 @@ function createApiRouter(db, accountPool, botEngine) {
     } catch (e) { next(e); }
   });
 
+  router.post('/bot/scan/start', async (req, res, next) => {
+    try { res.json(await botEngine.startScan()); } catch (e) { next(e); }
+  });
+
+  router.post('/bot/scan/stop', async (req, res, next) => {
+    try { res.json(await botEngine.stopScan()); } catch (e) { next(e); }
+  });
+
+  router.post('/bot/sell/start', async (req, res, next) => {
+    try { res.json(await botEngine.startSell()); } catch (e) { next(e); }
+  });
+
+  router.post('/bot/sell/stop', async (req, res, next) => {
+    try { res.json(await botEngine.stopSell()); } catch (e) { next(e); }
+  });
+
   router.post('/bot/start', async (req, res, next) => {
-    try { res.json(await botEngine.start()); } catch (e) { next(e); }
+    try { res.json(await botEngine.startScan()); } catch (e) { next(e); }
   });
 
   router.post('/bot/stop', async (req, res, next) => {
@@ -48,7 +68,8 @@ function createApiRouter(db, accountPool, botEngine) {
       res.json(rows.map((r) => ({
         ...r,
         enabled: Boolean(r.enabled),
-        strategy: r.config_json ? JSON.parse(r.config_json) : null,
+        sessionActive: accountPool.hasLiveSession(r.id),
+        strategy: r.config_json ? mergeStrategyConfig(r.game, JSON.parse(r.config_json)) : null,
         config_json: undefined,
       })));
     } catch (e) { next(e); }
@@ -74,7 +95,11 @@ function createApiRouter(db, accountPool, botEngine) {
       const row = await get(db, `SELECT a.*, s.config_json FROM accounts a
         LEFT JOIN strategy_config s ON s.account_id = a.id WHERE a.id = ?`, [req.params.id]);
       if (!row) return res.status(404).json({ error: 'Account not found' });
-      res.json({ ...row, enabled: Boolean(row.enabled), strategy: JSON.parse(row.config_json) });
+      res.json({
+        ...row,
+        enabled: Boolean(row.enabled),
+        strategy: mergeStrategyConfig(row.game, JSON.parse(row.config_json)),
+      });
     } catch (e) { next(e); }
   });
 
@@ -127,8 +152,11 @@ function createApiRouter(db, accountPool, botEngine) {
     try {
       const appId = gameToAppId(req.params.game);
       const session = accountPool.getSession('account-1');
-      const cookies = session?.cookieHeader || '';
-      const data = await priceFetcher.fetchItem(appId, decodeURIComponent(req.params.hashName), cookies);
+      const data = await priceFetcher.fetchItem(
+        appId,
+        decodeURIComponent(req.params.hashName),
+        session
+      );
       res.json(data);
     } catch (e) { next(e); }
   });
@@ -142,11 +170,11 @@ function createApiRouter(db, accountPool, botEngine) {
       if (!session?.community) {
         return res.status(401).json({ error: 'Login required for market search' });
       }
-      const { results, totalCount } = await priceFetcher.searchMarket(
-        session.community,
+      const { results, totalCount } = await priceFetcher.searchMarketRender(
         appId,
         req.query.q || '',
-        Number(req.query.start) || 0
+        session.cookieHeader || '',
+        { start: Number(req.query.start) || 0 }
       );
       res.json({ results, totalCount, appId });
     } catch (e) { next(e); }
@@ -174,20 +202,45 @@ function createApiRouter(db, accountPool, botEngine) {
     } catch (e) { next(e); }
   });
 
+  router.delete('/logs', async (req, res, next) => {
+    try {
+      const { accountId } = req.query;
+      const { logAudit } = require('../db/database');
+      if (accountId) {
+        await run(db, 'DELETE FROM audit_log WHERE account_id = ?', [accountId]);
+      } else {
+        await run(db, 'DELETE FROM audit_log');
+      }
+      await logAudit(db, {
+        accountId: accountId || null,
+        action: 'logs_cleared',
+        message: accountId ? `Очищены логи аккаунта ${accountId}` : 'Очищена вся история логов',
+      });
+      res.json({ ok: true });
+    } catch (e) { next(e); }
+  });
+
   router.get('/dashboard', async (req, res, next) => {
     try {
       const accounts = await all(db, 'SELECT id, label, game, enabled, status, wallet_balance FROM accounts ORDER BY id');
       const pnlToday = await get(db, `SELECT COALESCE(SUM(profit), 0) as total FROM trades WHERE date(created_at) = date('now') AND dry_run = 0`);
       const pnlWeek = await get(db, `SELECT COALESCE(SUM(profit), 0) as total FROM trades WHERE created_at >= datetime('now', '-7 days') AND dry_run = 0`);
-      const running = await botEngine.isRunning();
+      const runningScan = await botEngine.isScanRunning();
+      const runningSell = await botEngine.isSellRunning();
       const recentTrades = await all(db, 'SELECT * FROM trades ORDER BY id DESC LIMIT 5');
       res.json({
-        running,
+        running: runningScan,
+        runningScan,
+        runningSell,
         emergencyStop: botEngine.emergencyStop,
         totalWallet: accounts.reduce((s, a) => s + (a.wallet_balance || 0), 0),
         pnlToday: pnlToday?.total || 0,
         pnlWeek: pnlWeek?.total || 0,
-        accounts: accounts.map((a) => ({ ...a, enabled: Boolean(a.enabled) })),
+        accounts: accounts.map((a) => ({
+          ...a,
+          enabled: Boolean(a.enabled),
+          sessionActive: accountPool.hasLiveSession(a.id),
+        })),
         recentTrades,
       });
     } catch (e) { next(e); }

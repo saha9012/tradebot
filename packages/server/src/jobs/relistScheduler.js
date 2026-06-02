@@ -29,7 +29,7 @@ class RelistScheduler {
   }
 
   async checkWindows() {
-    if (!(await this.botEngine.isRunning())) return;
+    if (!(await this.botEngine.isScanRunning())) return;
 
     const accounts = await this.botEngine.getEnabledAccounts();
     for (const acc of accounts) {

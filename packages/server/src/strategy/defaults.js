@@ -5,10 +5,14 @@
   maxProfitPercentHighTier: 24,
   highTierPriceFrom: 200,
   minLiquidity: 15,
+  minLiquidityWeek: 150,
   undercutStep: 0.01,
   balanceThreshold: 5000,
   maxSpendPerDay: 5000,
   maxBuyOrders: 10,
+  /** Сколько лотов за один тик сканирования обогащать ценами (меньше = быстрее тик). */
+  scanItemsPerTick: 5,
+  maxSellPerTick: 3,
   relistMorning: '08:00',
   relistAfternoon: '14:00',
   relistEvening: '20:00',
@@ -23,4 +27,9 @@ const DEFAULT_STRATEGY = {
 
 const APP_IDS = { dota: 570, cs2: 730, rust: 252490 };
 
-module.exports = { BASE, DEFAULT_STRATEGY, APP_IDS };
+function mergeStrategyConfig(game, saved = {}) {
+  const base = DEFAULT_STRATEGY[game] || DEFAULT_STRATEGY.dota;
+  return { ...base, ...saved };
+}
+
+module.exports = { BASE, DEFAULT_STRATEGY, APP_IDS, mergeStrategyConfig };

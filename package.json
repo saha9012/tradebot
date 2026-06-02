@@ -4,9 +4,13 @@
   "private": true,
   "workspaces": ["packages/server", "packages/web"],
   "scripts": {
-    "dev": "concurrently \"npm run dev -w @steam-bot/server\" \"npm run dev -w @steam-bot/web\"",
+    "dev": "concurrently -k \"npm run dev -w @steam-bot/server\" \"npm run dev:web:wait\"",
+    "dev:web:wait": "npx --yes wait-on http-get://127.0.0.1:3000/api/health -t 60000 && npm run dev -w @steam-bot/web",
+    "dev:bot": "npm run dev -w @steam-bot/server",
+    "dev:ui": "npm run dev:web:wait",
     "dev:server": "npm run dev -w @steam-bot/server",
     "dev:web": "npm run dev -w @steam-bot/web",
+    "bot": "npm run start -w @steam-bot/server",
     "start": "npm run start -w @steam-bot/server"
   },
   "devDependencies": {

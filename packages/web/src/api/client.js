@@ -14,12 +14,18 @@ export const api = {
   getDashboard: () => request('/dashboard'),
   getAccounts: () => request('/accounts'),
   getAccount: (id) => request(`/accounts/${id}`),
-  updateStrategy: (id, config) => request(`/accounts/${id}/strategy`, { method: 'PUT', body: JSON.stringify(config) }),
-  patchAccount: (id, body) => request(`/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  updateStrategy: (id, config) =>
+    request(`/accounts/${id}/strategy`, { method: 'PUT', body: JSON.stringify(config) }),
+  patchAccount: (id, body) =>
+    request(`/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   login: (id) => request(`/accounts/${id}/login`, { method: 'POST' }),
   logout: (id) => request(`/accounts/${id}/logout`, { method: 'POST' }),
   botStatus: () => request('/bot/status'),
-  botStart: () => request('/bot/start', { method: 'POST' }),
+  botScanStart: () => request('/bot/scan/start', { method: 'POST' }),
+  botScanStop: () => request('/bot/scan/stop', { method: 'POST' }),
+  botSellStart: () => request('/bot/sell/start', { method: 'POST' }),
+  botSellStop: () => request('/bot/sell/stop', { method: 'POST' }),
+  botStart: () => request('/bot/scan/start', { method: 'POST' }),
   botStop: () => request('/bot/stop', { method: 'POST' }),
   botEmergencyStop: () => request('/bot/emergency-stop', { method: 'POST' }),
   refreshWallet: (id) => request(`/accounts/${id}/refresh-wallet`, { method: 'POST' }),
@@ -28,5 +34,9 @@ export const api = {
   getLogs: (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return request(`/logs?${q}`);
+  },
+  clearLogs: (accountId) => {
+    const q = accountId ? `?accountId=${encodeURIComponent(accountId)}` : '';
+    return request(`/logs${q}`, { method: 'DELETE' });
   },
 };

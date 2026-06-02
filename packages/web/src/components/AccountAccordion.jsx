@@ -1,21 +1,105 @@
 ﻿import { useState } from 'react';
 import { api } from '../api/client';
+import FieldLabel from './FieldLabel';
 
 const FIELDS = [
-  { key: 'feePercent', label: 'Fee %', type: 'number' },
-  { key: 'minProfitAbsolute', label: 'Min profit ₽', type: 'number', step: '0.01' },
-  { key: 'maxProfitPercent', label: 'Max profit % (scam)', type: 'number' },
-  { key: 'maxProfitPercentHighTier', label: 'Max profit % (200-500₽)', type: 'number' },
-  { key: 'maxItemPrice', label: 'Max item price ₽', type: 'number' },
-  { key: 'minLiquidity', label: 'Min sales/day', type: 'number' },
-  { key: 'undercutStep', label: 'Undercut step ₽', type: 'number', step: '0.01' },
-  { key: 'balanceThreshold', label: 'Balance threshold ₽', type: 'number' },
-  { key: 'maxSpendPerDay', label: 'Max spend / day ₽', type: 'number' },
-  { key: 'maxBuyOrders', label: 'Max buy orders / tick', type: 'number' },
-  { key: 'relistMorning', label: 'Relist morning', type: 'time' },
-  { key: 'relistAfternoon', label: 'Relist afternoon', type: 'time' },
-  { key: 'relistEvening', label: 'Relist evening', type: 'time' },
+  {
+    key: 'feePercent',
+    label: 'Комиссия Steam, %',
+    type: 'number',
+    hint: 'Процент комиссии при расчёте прибыли. У Steam на маркете обычно ~5% платформе + ~10% игре ≈ 15% с продажи. В боте стоит 15% с запасом — так не переоценишь профит.',
+  },
+  {
+    key: 'minProfitAbsolute',
+    label: 'Мин. прибыль, ₽',
+    type: 'number',
+    step: '0.01',
+    hint: 'Сделка только если чистая прибыль больше этой суммы (после комиссии). Например 0.10 ₽.',
+  },
+  {
+    key: 'maxProfitPercent',
+    label: 'Макс. прибыль, % (анти-скам)',
+    type: 'number',
+    hint: 'Если расчётная прибыль в % слишком высокая — не покупаем (часто ошибка цены или ловушка). По умолчанию 34%.',
+  },
+  {
+    key: 'maxProfitPercentHighTier',
+    label: 'Макс. прибыль, % (200–500₽)',
+    type: 'number',
+    hint: 'Для дорогих предметов (от 200 ₽) — ещё строже лимит прибыли, по умолчанию 24%. Для Dota с лимитом 200 ₽ редко срабатывает.',
+  },
+  {
+    key: 'maxItemPrice',
+    label: 'Макс. цена предмета, ₽',
+    type: 'number',
+    hint: 'Не покупать предметы дороже этой цены. Dota: 200 ₽, CS2/Rust: 500 ₽.',
+  },
+  {
+    key: 'minLiquidity',
+    label: 'Мин. продаж в сутки',
+    type: 'number',
+    hint: 'Сколько раз предмет должен продаваться за сутки по истории Steam. Если меньше — пропуск (неликвид).',
+  },
+  {
+    key: 'minLiquidityWeek',
+    label: 'Мин. продаж за неделю',
+    type: 'number',
+    hint: 'Минимум сделок за 7 дней по истории Steam. По умолчанию 150 — отсекает долго висящие лоты.',
+  },
+  {
+    key: 'undercutStep',
+    label: 'Шаг перебива, ₽',
+    type: 'number',
+    step: '0.01',
+    hint: 'На сколько ₽ перебивать конкурента: buy +0.01, sell −0.01 от лучшей цены.',
+  },
+  {
+    key: 'balanceThreshold',
+    label: 'Порог баланса, ₽',
+    type: 'number',
+    hint: 'Пока баланс кошелька ниже — Dota-аккаунт торгует. Выше порога бот по Dota отдыхает (до настройки CS2).',
+  },
+  {
+    key: 'maxSpendPerDay',
+    label: 'Макс. траты в день, ₽',
+    type: 'number',
+    hint: 'Лимит расходов на покупки за сутки на этот аккаунт (только при выключенном Dry run).',
+  },
+  {
+    key: 'maxBuyOrders',
+    label: 'Макс. покупок за цикл',
+    type: 'number',
+    hint: 'Сколько предметов максимум обработать за один проход бота (~раз в минуту).',
+  },
+  {
+    key: 'relistMorning',
+    label: 'Перевыставление: утро',
+    type: 'time',
+    hint: 'В это время бот обновит ордера/листинги (окно 1).',
+  },
+  {
+    key: 'relistAfternoon',
+    label: 'Перевыставление: день',
+    type: 'time',
+    hint: 'Второе окно перевыставления ордеров.',
+  },
+  {
+    key: 'relistEvening',
+    label: 'Перевыставление: вечер',
+    type: 'time',
+    hint: 'Третье окно перевыставления ордеров.',
+  },
 ];
+
+const STATUS_RU = {
+  offline: 'не в сети',
+  idle: 'готов',
+  needs_login: 'нужен вход',
+  logging_in: 'вход…',
+  trading: 'торгует',
+  error: 'ошибка',
+  rate_limited: 'лимит Steam',
+};
 
 export default function AccountAccordion({ account, onUpdate }) {
   const [open, setOpen] = useState(false);
@@ -25,27 +109,43 @@ export default function AccountAccordion({ account, onUpdate }) {
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
-    setBusy(true); setErr('');
+    setBusy(true);
+    setErr('');
     try {
       await api.updateStrategy(account.id, config);
-      setMsg('Saved');
+      setMsg('Сохранено');
       onUpdate();
-    } catch (e) { setErr(e.message); }
-    finally { setBusy(false); setTimeout(() => setMsg(''), 2000); }
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+      setTimeout(() => setMsg(''), 2000);
+    }
   };
 
   const login = async () => {
-    setBusy(true); setErr('');
-    try { await api.login(account.id); onUpdate(); }
-    catch (e) { setErr(e.message); }
-    finally { setBusy(false); }
+    setBusy(true);
+    setErr('');
+    try {
+      await api.login(account.id);
+      onUpdate();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const logout = async () => {
     setBusy(true);
-    try { await api.logout(account.id); onUpdate(); }
-    catch (e) { setErr(e.message); }
-    finally { setBusy(false); }
+    try {
+      await api.logout(account.id);
+      onUpdate();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const toggleEnabled = async () => {
@@ -53,55 +153,107 @@ export default function AccountAccordion({ account, onUpdate }) {
     onUpdate();
   };
 
+  const statusLabel = STATUS_RU[account.status] || account.status;
+
   return (
-    <div className="glass accordion">
+    <div className="glass accordion rounded-2xl">
       <div className="accordion-header" onClick={() => setOpen(!open)}>
         <div>
           <strong>{account.label}</strong>
-          <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: '0.85rem' }}>{account.game.toUpperCase()}</span>
-          <span className="badge" style={{ marginLeft: 8 }}>{account.status}</span>
+          <span className="ml-2 text-sm text-white/45">
+            {account.game.toUpperCase()}
+          </span>
+          <span className="badge" style={{ marginLeft: 8 }}>{statusLabel}</span>
+          {account.sessionActive ? (
+            <span className="badge running" style={{ marginLeft: 8 }}>
+              Steam онлайн
+            </span>
+          ) : account.status !== 'offline' && account.status !== 'logging_in' ? (
+            <span className="badge" style={{ marginLeft: 8, borderColor: '#fbbf24', color: '#fbbf24' }}>
+              нужен вход
+            </span>
+          ) : null}
         </div>
         <span>{open ? '▲' : '▼'}</span>
       </div>
       {open && (
         <div className="accordion-body">
-          <div style={{ display: 'flex', gap: 16, marginBottom: 12, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-            <span>Wallet: {(account.wallet_balance ?? 0).toFixed(2)} ₽</span>
-            <span>Env: {account.credentials_env}_*</span>
+          <div className="mb-3 flex flex-wrap gap-4 text-sm text-white/45">
+            <span>Кошелёк: {(account.wallet_balance ?? 0).toFixed(2)} ₽</span>
+            <span>Ключи: {account.credentials_env}_* в .env</span>
           </div>
           <div className="actions">
-            <button className="btn btn-primary" onClick={login} disabled={busy}>Login</button>
-            <button className="btn" onClick={logout} disabled={busy}>Logout</button>
-            <button className="btn" disabled={busy} onClick={async () => {
-              setBusy(true);
-              try { await api.refreshWallet(account.id); onUpdate(); } catch (e) { setErr(e.message); }
-              finally { setBusy(false); }
-            }}>Refresh wallet</button>
-            <button className="btn" onClick={toggleEnabled}>{account.enabled ? 'Disable' : 'Enable'}</button>
-            <label style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <input type="checkbox" checked={!!config.dryRun} onChange={(e) => setConfig({ ...config, dryRun: e.target.checked })} />
-              Dry run
+            <button type="button" className="btn btn-primary" onClick={login} disabled={busy}>
+              Войти в Steam
+            </button>
+            <button type="button" className="btn" onClick={logout} disabled={busy}>
+              Выйти
+            </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await api.refreshWallet(account.id);
+                  onUpdate();
+                } catch (e) {
+                  setErr(e.message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Обновить кошелёк
+            </button>
+            <button type="button" className="btn" onClick={toggleEnabled}>
+              {account.enabled ? 'Отключить аккаунт' : 'Включить аккаунт'}
+            </button>
+            <label className="dry-run-toggle">
+              <input
+                type="checkbox"
+                checked={!!config.dryRun}
+                onChange={(e) => setConfig({ ...config, dryRun: e.target.checked })}
+              />
+              <span>Тестовый режим (Dry run)</span>
+              <span
+                className="hint-icon hint-icon-inline"
+                tabIndex={0}
+                aria-label="Без реальных покупок"
+              >
+                ?
+                <span className="hint-tooltip" role="tooltip">
+                  Включено: бот только пишет в лог «купил бы / продал бы», деньги не тратит. Сначала всегда держи включённым.
+                </span>
+              </span>
             </label>
           </div>
           <div className="form-grid">
             {FIELDS.map((f) => (
-              <label key={f.key}>
-                {f.label}
+              <FieldLabel key={f.key} label={f.label} hint={f.hint}>
                 <input
                   type={f.type}
                   step={f.step}
                   value={config[f.key] ?? ''}
-                  onChange={(e) => setConfig({ ...config, [f.key]: f.type === 'number' ? Number(e.target.value) : e.target.value })}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      [f.key]: f.type === 'number' ? Number(e.target.value) : e.target.value,
+                    })
+                  }
                 />
-              </label>
+              </FieldLabel>
             ))}
           </div>
           <div className="actions">
-            <button className="btn btn-primary" onClick={save} disabled={busy}>Save strategy</button>
-            {msg && <span style={{ color: 'var(--success)' }}>{msg}</span>}
+            <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>
+              Сохранить настройки
+            </button>
+            {msg && <span className="text-sm text-emerald-400">{msg}</span>}
           </div>
           {err && <p className="error">{err}</p>}
-          {account.last_error && <p className="error">Last error: {account.last_error}</p>}
+          {account.last_error && <p className="error">Последняя ошибка: {account.last_error}</p>}
         </div>
       )}
     </div>

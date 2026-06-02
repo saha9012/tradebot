@@ -16,7 +16,11 @@ function loadCredentials(envPrefix) {
 }
 
 function createClient() {
-  return new SteamUser({ autoRelogin: false, pingInterval: 30000 });
+  const client = new SteamUser({ autoRelogin: false, pingInterval: 30000 });
+  client.on('error', (err) => {
+    console.error('[steam-user]', err.message || err);
+  });
+  return client;
 }
 
 async function initMarket(client, cookies) {
@@ -110,12 +114,26 @@ function logoutClient(client) {
   });
 }
 
-function getWalletBalance(community) {
+/** Баланс кошелька через steam-user (событие wallet), не steamcommunity. */
+function getWalletBalance(client, timeoutMs = 10000) {
+  if (client?.wallet?.hasWallet) {
+    return Promise.resolve(client.wallet.balance);
+  }
+
   return new Promise((resolve, reject) => {
-    community.getWalletBalance((err, balance) => {
-      if (err) reject(err);
-      else resolve(balance);
-    });
+    const timer = setTimeout(() => {
+      client.removeListener('wallet', onWallet);
+      if (client.wallet?.hasWallet) resolve(client.wallet.balance);
+      else reject(new Error('Кошелёк: Steam не прислал баланс (таймаут)'));
+    }, timeoutMs);
+
+    const onWallet = (hasWallet, _currency, balance) => {
+      clearTimeout(timer);
+      client.removeListener('wallet', onWallet);
+      resolve(hasWallet ? balance : 0);
+    };
+
+    client.on('wallet', onWallet);
   });
 }
 

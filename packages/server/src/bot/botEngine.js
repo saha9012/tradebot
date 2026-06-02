@@ -1,10 +1,13 @@
 ﻿const { evaluate } = require('../strategy/strategyEngine');
 const { get, run, logAudit, all } = require('../db/database');
+const { mergeStrategyConfig } = require('../strategy/defaults');
+const { formatSkipReason } = require('../util/auditMessages');
 const { MarketScanner } = require('../market/marketScanner');
 const { MarketExecutor } = require('../market/marketExecutor');
+const { InventorySeller } = require('../market/inventorySeller');
 const { PriceFetcher } = require('../providers/steam/priceFetcher');
 const { RateLimiter } = require('../jobs/rateLimiter');
-const { rateLimitMinMs, rateLimitJitterMs } = require('../config');
+const { rateLimitMinMs, rateLimitJitterMs, scanTickMs, sellTickMs } = require('../config');
 const { RelistScheduler } = require('../jobs/relistScheduler');
 
 class BotEngine {
@@ -16,22 +19,52 @@ class BotEngine {
       jitterMs: rateLimitJitterMs,
     });
     this.priceFetcher = new PriceFetcher(db, this.rateLimiter);
-    this.marketScanner = new MarketScanner(this.priceFetcher);
+    this.marketScanner = new MarketScanner(this.priceFetcher, db);
     this.marketExecutor = new MarketExecutor(db, accountPool, this.rateLimiter);
+    this.inventorySeller = new InventorySeller(accountPool, this.priceFetcher, this.marketExecutor);
     this.relistScheduler = new RelistScheduler(this);
-    this.interval = null;
-    this.tickMs = 60_000;
+    this.scanInterval = null;
+    this.sellInterval = null;
     this.emergencyStop = false;
+    this.lastSkipLog = new Map();
+    this.scanTickBusy = false;
+    this.sellTickBusy = false;
+    this.lastRateLimitLog = 0;
   }
 
-  async isRunning() {
-    if (this.emergencyStop) return false;
-    const row = await get(this.db, "SELECT value FROM bot_state WHERE key = 'running'");
+  shouldLogSkip(accountId) {
+    const now = Date.now();
+    const last = this.lastSkipLog.get(accountId) || 0;
+    if (now - last < 15 * 60 * 1000) return false;
+    this.lastSkipLog.set(accountId, now);
+    return true;
+  }
+
+  async getState(key) {
+    const row = await get(this.db, 'SELECT value FROM bot_state WHERE key = ?', [key]);
     return row?.value === 'true';
   }
 
-  async setRunning(running) {
-    await run(this.db, "INSERT OR REPLACE INTO bot_state (key, value) VALUES ('running', ?)", [running ? 'true' : 'false']);
+  async setState(key, value) {
+    await run(this.db, 'INSERT OR REPLACE INTO bot_state (key, value) VALUES (?, ?)', [
+      key,
+      value ? 'true' : 'false',
+    ]);
+  }
+
+  async isScanRunning() {
+    if (this.emergencyStop) return false;
+    return this.getState('running_scan');
+  }
+
+  async isSellRunning() {
+    if (this.emergencyStop) return false;
+    return this.getState('running_sell');
+  }
+
+  /** @deprecated используй isScanRunning */
+  async isRunning() {
+    return this.isScanRunning();
   }
 
   async getEnabledAccounts() {
@@ -40,45 +73,88 @@ class BotEngine {
       WHERE a.enabled = 1`);
   }
 
-  async start() {
+  async startScan() {
     this.emergencyStop = false;
-    await this.setRunning(true);
-    if (this.interval) clearInterval(this.interval);
+    await this.setState('running_scan', true);
+    await this.setState('running', true);
+    if (this.scanInterval) clearInterval(this.scanInterval);
     this.relistScheduler.start();
-    this.interval = setInterval(() => this.tick().catch(console.error), this.tickMs);
-    await this.tick();
-    return { running: true };
+    this.scanInterval = setInterval(() => this.tickScan().catch(console.error), scanTickMs);
+    await this.tickScan();
+    return { runningScan: true };
+  }
+
+  async stopScan() {
+    await this.setState('running_scan', false);
+    await this.setState('running', false);
+    this.relistScheduler.stop();
+    if (this.scanInterval) {
+      clearInterval(this.scanInterval);
+      this.scanInterval = null;
+    }
+    return { runningScan: false };
+  }
+
+  async startSell() {
+    this.emergencyStop = false;
+    await this.setState('running_sell', true);
+    if (this.sellInterval) clearInterval(this.sellInterval);
+    this.sellInterval = setInterval(() => this.tickSell().catch(console.error), sellTickMs);
+    await this.tickSell();
+    return { runningSell: true };
+  }
+
+  async stopSell() {
+    await this.setState('running_sell', false);
+    if (this.sellInterval) {
+      clearInterval(this.sellInterval);
+      this.sellInterval = null;
+    }
+    return { runningSell: false };
+  }
+
+  /** Старый API: только поиск/покупка */
+  async start() {
+    return this.startScan();
   }
 
   async stop() {
-    await this.setRunning(false);
-    this.relistScheduler.stop();
-    if (this.interval) {
-      clearInterval(this.interval);
-      this.interval = null;
-    }
-    return { running: false };
+    await this.stopScan();
+    await this.stopSell();
+    return { runningScan: false, runningSell: false };
   }
 
   async emergencyStopAll() {
     this.emergencyStop = true;
-    await this.stop();
-    await logAudit(this.db, { action: 'emergency_stop', message: 'Bot emergency stopped' });
-    return { running: false, emergency: true };
+    await this.stopScan();
+    await this.stopSell();
+    await logAudit(this.db, { action: 'emergency_stop', message: 'Аварийная остановка всех режимов' });
+    return { runningScan: false, runningSell: false, emergency: true };
   }
 
-  async tick() {
-    if (!(await this.isRunning())) return;
+  async tickScan() {
+    if (!(await this.isScanRunning())) return;
+    if (this.scanTickBusy) return;
 
     if (this.rateLimiter.isPaused()) {
-      await logAudit(this.db, { action: 'rate_limit_pause', message: 'Skipping tick — rate limiter paused' });
+      const now = Date.now();
+      if (now - this.lastRateLimitLog > 60_000) {
+        this.lastRateLimitLog = now;
+        await logAudit(this.db, {
+          level: 'warn',
+          action: 'rate_limit_pause',
+          message: 'Поиск: пауза из‑за лимита Steam (429), повтор через несколько минут',
+        });
+      }
       return;
     }
 
-    const accounts = await this.getEnabledAccounts();
+    this.scanTickBusy = true;
+    try {
+      const accounts = await this.getEnabledAccounts();
 
-    for (const acc of accounts) {
-      const config = JSON.parse(acc.config_json);
+      for (const acc of accounts) {
+      const config = mergeStrategyConfig(acc.game, JSON.parse(acc.config_json));
       if (!config.enabled) continue;
 
       const wallet = acc.wallet_balance ?? 0;
@@ -86,61 +162,165 @@ class BotEngine {
         await logAudit(this.db, {
           accountId: acc.id,
           action: 'balance_threshold',
-          message: `Wallet ${wallet} >= ${config.balanceThreshold} — Dota lane idle`,
+          message: `Баланс ${wallet} ₽ ≥ порога ${config.balanceThreshold} ₽ — поиск отдыхает`,
         });
         continue;
       }
 
-      if (acc.game === 'cs2' || acc.game === 'rust') {
-        if (!config.enabled) continue;
+      try {
+        await this.processAccountScan(acc, config);
+      } catch (err) {
+        console.error('[tickScan]', acc.id, err.message);
+        await logAudit(this.db, {
+          accountId: acc.id,
+          level: 'error',
+          action: 'scan_tick_error',
+          message: err.message,
+        });
       }
-
-      await this.processAccount(acc, config);
+      }
+    } finally {
+      this.scanTickBusy = false;
     }
   }
 
-  async processAccount(account, config) {
+  async tickSell() {
+    if (!(await this.isSellRunning())) return;
+    if (this.sellTickBusy) return;
+    if (this.rateLimiter.isPaused()) return;
+
+    this.sellTickBusy = true;
+    const accounts = await this.getEnabledAccounts();
+
+    try {
+      for (const acc of accounts) {
+        const config = mergeStrategyConfig(acc.game, JSON.parse(acc.config_json));
+        if (!config.enabled) continue;
+        await this.processAccountSell(acc, config);
+      }
+    } finally {
+      this.sellTickBusy = false;
+    }
+  }
+
+  async processAccountScan(account, config) {
     const session = this.accountPool.getSession(account.id);
 
     if (!session) {
+      if (!this.shouldLogSkip(account.id)) return;
       await logAudit(this.db, {
         accountId: account.id,
         action: 'tick_skip',
-        message: 'Not logged in — login to scan market',
+        message:
+          'Поиск: нет активной сессии Steam. После перезапуска сервера нажмите «Войти в Steam» снова (статус «готов» в UI ≠ вход)',
       });
       return;
     }
 
     try {
-      await this.accountPool.refreshWallet(account.id);
+      const { wallet } = await this.accountPool.refreshWallet(account.id);
+      account.wallet_balance = wallet;
     } catch {
-      /* wallet refresh optional */
+      /* optional */
     }
 
-    const { items, error } = await this.marketScanner.scanAccount(
+    const scanLimit = Math.min(
+      config.maxBuyOrders ?? 10,
+      config.scanItemsPerTick ?? 5
+    );
+
+    const { items, error, meta } = await this.marketScanner.scanAccount(
       session,
+      account.id,
       account.game,
       config,
-      { maxItems: 10 }
+      { maxItems: scanLimit }
     );
 
     if (error) {
-      await logAudit(this.db, { accountId: account.id, level: 'warn', action: 'scan_error', message: error });
+      await logAudit(this.db, {
+        accountId: account.id,
+        level: 'warn',
+        action: 'scan_error',
+        message: error,
+        meta,
+      });
       return;
     }
 
     if (!items.length) {
-      await logAudit(this.db, { accountId: account.id, action: 'scan_empty', message: 'No items in price range' });
+      await logAudit(this.db, {
+        accountId: account.id,
+        action: 'scan_empty',
+        message: 'Поиск: нет подходящих предметов',
+        meta,
+      });
       return;
     }
+
+    await logAudit(this.db, {
+      accountId: account.id,
+      action: 'scan_cycle',
+      message: meta?.label
+        ? `Поиск: ${meta.label} → ${meta.nextLabel || '—'}. Лотов: ${items.length}`
+        : `Поиск: просмотрено ${items.length} лотов`,
+      meta,
+    });
 
     let buyCount = 0;
     for (const item of items) {
       if (buyCount >= (config.maxBuyOrders ?? 10)) break;
-
       const decision = evaluate(account.game, config, item);
       await this.handleDecision(account, config, item, decision);
       if (decision.action === 'buy') buyCount += 1;
+    }
+  }
+
+  async processAccountSell(account, config) {
+    const session = this.accountPool.getSession(account.id);
+
+    if (!session) {
+      return;
+    }
+
+    try {
+      const result = await this.inventorySeller.processAccount(account, config, session);
+
+      if (result.empty) return;
+
+      if (result.lastItem) {
+        const { hashName, sellPrice, dryRun } = result.lastItem;
+        await run(
+          this.db,
+          `INSERT INTO trades (account_id, game, action, market_hash_name, price, profit, dry_run)
+           VALUES (?, ?, 'sell', ?, ?, NULL, ?)`,
+          [account.id, account.game, hashName, sellPrice, dryRun ? 1 : 0]
+        );
+        await logAudit(this.db, {
+          accountId: account.id,
+          action: dryRun ? 'dry_run_sell' : 'sell',
+          message: dryRun
+            ? `[тест] Продал бы «${hashName}» за ${sellPrice} ₽`
+            : `Продажа «${hashName}» за ${sellPrice} ₽`,
+          meta: result.lastItem,
+        });
+      }
+
+      if (result.errors?.length) {
+        await logAudit(this.db, {
+          accountId: account.id,
+          level: 'warn',
+          action: 'sell_skip',
+          message: result.errors.join('; '),
+        });
+      }
+    } catch (err) {
+      await logAudit(this.db, {
+        accountId: account.id,
+        level: 'warn',
+        action: 'inventory_error',
+        message: err.message,
+      });
     }
   }
 
@@ -157,26 +337,19 @@ class BotEngine {
           config
         );
 
-        await run(this.db, `INSERT INTO trades (account_id, game, action, market_hash_name, price, profit, dry_run)
-          VALUES (?, ?, 'buy', ?, ?, ?, ?)`,
-          [account.id, account.game, decision.marketHashName, decision.buyOrderPrice, decision.profit, dryRun]);
+        await run(
+          this.db,
+          `INSERT INTO trades (account_id, game, action, market_hash_name, price, profit, dry_run)
+           VALUES (?, ?, 'buy', ?, ?, ?, ?)`,
+          [account.id, account.game, decision.marketHashName, decision.buyOrderPrice, decision.profit, dryRun]
+        );
 
         await logAudit(this.db, {
           accountId: account.id,
           action: dryRun ? 'dry_run_buy' : 'buy',
-          message: `${dryRun ? 'Would buy' : 'Buy'} ${decision.marketHashName} @ ${decision.buyOrderPrice}, sell @ ${decision.sellListingPrice}`,
+          message: `${dryRun ? '[тест] Купил бы' : 'Покупка'} «${decision.marketHashName}» @ ${decision.buyOrderPrice} ₽`,
           meta: { ...decision, buyResult },
         });
-
-        // Sell listing requires assetId from inventory after buy fills — logged for relist job
-        if (!config.dryRun) {
-          await logAudit(this.db, {
-            accountId: account.id,
-            action: 'sell_pending',
-            message: `List at ${decision.sellListingPrice} when item arrives in inventory`,
-            meta: { marketHashName: decision.marketHashName },
-          });
-        }
       } catch (err) {
         await logAudit(this.db, {
           accountId: account.id,
@@ -190,17 +363,23 @@ class BotEngine {
       await logAudit(this.db, {
         accountId: account.id,
         action: decision.reason,
-        message: `Skip ${decision.marketHashName}`,
+        message: `Пропуск «${decision.marketHashName}»: ${formatSkipReason(decision.reason)}${
+          decision.meta?.profit != null
+            ? ` (прибыль ~${decision.meta.profit} ₽, покупка ${decision.meta.buyPrice} ₽, после комиссии ~${decision.meta.netSell} ₽)`
+            : ''
+        }`,
         meta: decision.meta,
       });
     }
   }
 
   async runRelistWindow(account, config, slot) {
+    if (!(await this.isScanRunning())) return;
+
     await logAudit(this.db, {
       accountId: account.id,
       action: 'relist_window',
-      message: `Relist window: ${slot}`,
+      message: `Окно перевыставления: ${slot}`,
     });
 
     try {

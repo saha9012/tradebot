@@ -8,6 +8,8 @@ module.exports = {
   accountsDir: process.env.ACCOUNTS_DIR || path.join(__dirname, '../../../accounts'),
   adminUser: process.env.ADMIN_USER || 'admin',
   adminPassword: process.env.ADMIN_PASSWORD || 'admin',
-  rateLimitMinMs: Number(process.env.RATE_LIMIT_MIN_MS) || 4000,
-  rateLimitJitterMs: Number(process.env.RATE_LIMIT_JITTER_MS) || 2000,
+  rateLimitMinMs: Number(process.env.RATE_LIMIT_MIN_MS) || 2500,
+  rateLimitJitterMs: Number(process.env.RATE_LIMIT_JITTER_MS) || 1000,
+  scanTickMs: Number(process.env.SCAN_TICK_MS) || 60_000,
+  sellTickMs: Number(process.env.SELL_TICK_MS) || 45_000,
 };

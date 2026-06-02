@@ -3,3 +3,4 @@ data/
 .env
 accounts/*.maFile
 *.db
+_flare-ref/

@@ -25,8 +25,8 @@ class RateLimiter {
     return this.paused && Date.now() < this.pausedUntil;
   }
 
-  async schedule(fn) {
-    this.queue = this.queue.then(async () => {
+  schedule(fn) {
+    const run = async () => {
       const wait = this.pausedUntil - Date.now();
       if (wait > 0) await sleep(wait);
 
@@ -42,9 +42,11 @@ class RateLimiter {
         }
         throw err;
       }
-    });
+    };
 
-    return this.queue;
+    const result = this.queue.then(run, run);
+    this.queue = result.then(() => {}, () => {});
+    return result;
   }
 }
 

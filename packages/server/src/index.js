@@ -6,10 +6,16 @@ const { initDatabase } = require('./db/database');
 const { AccountPool } = require('./steam/accountPool');
 const { BotEngine } = require('./bot/botEngine');
 const { createApiRouter } = require('./api/routes');
+const { bootstrapBackground } = require('./bootstrap');
+
+process.on('unhandledRejection', (err) => {
+  console.error('[unhandledRejection]', err?.message || err);
+});
 
 async function main() {
   const db = await initDatabase();
   const accountPool = new AccountPool(db);
+  await accountPool.reconcileSessions();
   const botEngine = new BotEngine(db, accountPool);
 
   const app = express();
@@ -33,6 +39,10 @@ async function main() {
   app.listen(port, () => {
     console.log(`API http://localhost:${port}`);
     console.log(`Web  http://localhost:5173 (dev proxy)`);
+    console.log(`Режимы: BOT_AUTO_START_SELL / BOT_AUTO_START_SCAN; вход — вручную`);
+    bootstrapBackground(db, accountPool, botEngine).catch((err) => {
+      console.error('Bootstrap:', err.message);
+    });
   });
 }
 
