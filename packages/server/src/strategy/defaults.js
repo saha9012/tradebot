@@ -1,4 +1,4 @@
-﻿const BASE = {
+const BASE = {
   feePercent: 15,
   minProfitAbsolute: 0.1,
   maxProfitPercent: 34,
@@ -11,7 +11,7 @@
   maxSpendPerDay: 5000,
   maxBuyOrders: 10,
   /** Сколько лотов за один тик сканирования обогащать ценами (меньше = быстрее тик). */
-  scanItemsPerTick: 5,
+  scanItemsPerTick: 1,
   maxSellPerTick: 3,
   relistMorning: '08:00',
   relistAfternoon: '14:00',

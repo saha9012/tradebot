@@ -1,4 +1,4 @@
-﻿const { createClient, loadCredentials, loginClient, logoutClient, getWalletBalance } = require('./steamSession');
+const { createClient, loadCredentials, loginClient, logoutClient, getWalletBalance } = require('./steamSession');
 const { run, logAudit } = require('../db/database');
 
 function isLiveSession(session) {
@@ -94,6 +94,7 @@ class AccountPool {
         community: info.community,
         sessionID: info.sessionID,
         cookieHeader: info.cookieHeader,
+        webCookies: info.webCookies || [],
         market: info.market || null,
         info: { steamId: info.steamId, accountName: info.accountName },
         loggedInAt: Date.now(),

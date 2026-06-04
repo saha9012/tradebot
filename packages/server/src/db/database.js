@@ -1,4 +1,4 @@
-﻿const sqlite3 = require('sqlite3').verbose();
+const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
 const { dbPath } = require('../config');
@@ -73,6 +73,63 @@ async function initDatabase() {
     PRIMARY KEY (app_id, market_hash_name)
   )`);
 
+  await run(db, `CREATE TABLE IF NOT EXISTS fetch_debug_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trace_id TEXT NOT NULL,
+    account_id TEXT,
+    app_id INTEGER,
+    market_hash_name TEXT,
+    step TEXT NOT NULL,
+    ok INTEGER NOT NULL DEFAULT 0,
+    error TEXT,
+    detail_json TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
+
+  await run(db, `CREATE TABLE IF NOT EXISTS item_name_ids (
+    app_id INTEGER NOT NULL,
+    market_hash_name TEXT NOT NULL,
+    item_name_id TEXT NOT NULL,
+    source TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (app_id, market_hash_name)
+  )`);
+
+  await run(db, `CREATE TABLE IF NOT EXISTS market_catalog (
+    app_id INTEGER NOT NULL,
+    market_hash_name TEXT NOT NULL,
+    sell_price_cents INTEGER NOT NULL,
+    qty INTEGER,
+    listing_url TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (app_id, market_hash_name)
+  )`);
+
+  await run(db, `CREATE TABLE IF NOT EXISTS market_analytics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id TEXT,
+    game TEXT NOT NULL,
+    app_id INTEGER NOT NULL,
+    market_hash_name TEXT NOT NULL,
+    item_name_id TEXT,
+    highest_buy_order REAL,
+    lowest_listing REAL,
+    buy_order_price REAL,
+    sell_listing_price REAL,
+    profit REAL,
+    profit_percent REAL,
+    sales_per_day INTEGER,
+    sales_per_week INTEGER,
+    price_source TEXT,
+    decision TEXT,
+    skip_reason TEXT,
+    listing_url TEXT,
+    steam_raw_json TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
+
+  await migrateTradeColumns(db);
+
   const count = await get(db, 'SELECT COUNT(*) as c FROM accounts');
   if (count.c === 0) {
     const defaults = [
@@ -98,7 +155,26 @@ async function initDatabase() {
     if (!row) await run(db, 'INSERT INTO bot_state (key, value) VALUES (?, ?)', [key, value]);
   }
 
+  const { purgeInvalidItemNameIds } = require('./itemNameIdStore');
+  await purgeInvalidItemNameIds(db);
+
   return db;
+}
+
+async function migrateTradeColumns(db) {
+  const cols = await all(db, 'PRAGMA table_info(trades)');
+  const names = new Set(cols.map((c) => c.name));
+  const add = async (sql) => {
+    try {
+      await run(db, sql);
+    } catch {
+      /* column may already exist */
+    }
+  };
+  if (!names.has('listing_url')) await add('ALTER TABLE trades ADD COLUMN listing_url TEXT');
+  if (!names.has('app_id')) await add('ALTER TABLE trades ADD COLUMN app_id INTEGER');
+  if (!names.has('item_name_id')) await add('ALTER TABLE trades ADD COLUMN item_name_id TEXT');
+  if (!names.has('analytics_id')) await add('ALTER TABLE trades ADD COLUMN analytics_id INTEGER');
 }
 
 async function logAudit(db, { accountId, level, action, message, meta }) {

@@ -1,4 +1,4 @@
-﻿const SteamUser = require('steam-user');
+const SteamUser = require('steam-user');
 const SteamTotp = require('steam-totp');
 const SteamCommunity = require('steamcommunity');
 
@@ -24,10 +24,13 @@ function createClient() {
 }
 
 async function initMarket(client, cookies) {
-  const { default: SteamMarket } = await import('steam-market');
+  const steamMarket = await import('steam-market');
+  const SteamMarket = steamMarket.default;
+  const { ECurrencyCode } = steamMarket;
   const market = new SteamMarket();
   market.setCookies(cookies);
   market.setCountry('RU');
+  market.setCurrency(ECurrencyCode.RUB);
 
   const vanity = client.vanityURL ?? client.steamID?.getSteamID64?.() ?? '';
   if (vanity) market.setVanityURL(String(vanity));
@@ -70,6 +73,7 @@ function loginClient(client, credentials) {
         community,
         sessionID,
         cookieHeader,
+        webCookies: cookies,
         market,
         marketError,
       });

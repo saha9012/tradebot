@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 @theme {
   --font-display: "Syne", system-ui, sans-serif;
@@ -313,6 +313,16 @@ th {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.analytics-table th,
+.analytics-table td {
+  padding: 0.5rem 0.6rem;
+  max-width: 12rem;
+}
+
+.analytics-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .actions {

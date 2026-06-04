@@ -11,6 +11,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
+    "playwright": "^1.60.0",
     "sqlite3": "^5.1.7",
     "steam-market": "^3.0.4",
     "steam-totp": "^2.1.2",

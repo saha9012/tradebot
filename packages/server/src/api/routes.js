@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const { all, get, run } = require('../db/database');
 const { gameToAppId } = require('../providers/steam/priceFetcher');
 const { mergeStrategyConfig, DEFAULT_STRATEGY } = require('../strategy/defaults');
@@ -21,6 +21,9 @@ function createApiRouter(db, accountPool, botEngine) {
         runningSell,
         emergencyStop: botEngine.emergencyStop,
         rateLimiterPaused: botEngine.rateLimiter.isPaused(),
+        marketPriceMode: require('../config').marketPriceMode,
+        scanItemsPerTick: require('../config').scanItemsPerTick,
+        scanTickMs: require('../config').scanTickMs,
         sessions: accountPool.listStatuses(),
       });
     } catch (e) { next(e); }
@@ -161,6 +164,51 @@ function createApiRouter(db, accountPool, botEngine) {
     } catch (e) { next(e); }
   });
 
+  router.post('/market/catalog/sync', async (req, res, next) => {
+    try {
+      const game = req.body?.game || req.query?.game || 'dota';
+      const accountId = req.body?.accountId || req.query?.accountId || 'account-1';
+      const session = accountPool.getSession(accountId);
+      if (!session?.cookieHeader) {
+        return res.status(401).json({ error: 'Login required' });
+      }
+      const { syncGameCatalog } = require('../market/marketCatalogSync');
+      const result = await syncGameCatalog(priceFetcher, db, game, session, {
+        query: req.body?.query || req.query?.q || '',
+        maxPages: Math.min(Number(req.body?.maxPages) || 30, 100),
+      });
+      res.json(result);
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  router.get('/market/catalog', async (req, res, next) => {
+    try {
+      const game = req.query.game || 'dota';
+      const appId = gameToAppId(game);
+      const limit = Math.min(Number(req.query.limit) || 100, 500);
+      const rows = await all(
+        db,
+        `SELECT market_hash_name, sell_price_cents, qty, listing_url, updated_at
+         FROM market_catalog WHERE app_id = ? ORDER BY updated_at DESC LIMIT ?`,
+        [appId, limit]
+      );
+      res.json({
+        appId,
+        items: rows.map((r) => ({
+          marketHashName: r.market_hash_name,
+          sellPriceRub: r.sell_price_cents / 100,
+          qty: r.qty,
+          listingUrl: r.listing_url,
+          updatedAt: r.updated_at,
+        })),
+      });
+    } catch (e) {
+      next(e);
+    }
+  });
+
   router.get('/market/search', async (req, res, next) => {
     try {
       const game = req.query.game || 'dota';
@@ -186,6 +234,53 @@ function createApiRouter(db, accountPool, botEngine) {
       const rows = await all(db, 'SELECT * FROM trades ORDER BY id DESC LIMIT ?', [limit]);
       res.json(rows);
     } catch (e) { next(e); }
+  });
+
+  router.get('/debug/fetches', async (req, res, next) => {
+    try {
+      const { listFetchDebugEvents } = require('../db/fetchDebugLog');
+      const limit = Math.min(Number(req.query.limit) || 200, 1000);
+      const sinceId = Number(req.query.sinceId) || 0;
+      const rows = await listFetchDebugEvents(db, { limit, sinceId });
+      res.json(
+        rows.map((r) => ({
+          ...r,
+          ok: Boolean(r.ok),
+          detail: r.detail_json ? JSON.parse(r.detail_json) : null,
+          detail_json: undefined,
+        }))
+      );
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  router.delete('/debug/fetches', async (req, res, next) => {
+    try {
+      const { clearFetchDebugEvents } = require('../db/fetchDebugLog');
+      await clearFetchDebugEvents(db);
+      res.json({ ok: true });
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  router.get('/analytics', async (req, res, next) => {
+    try {
+      const { listMarketSnapshots } = require('../db/marketAnalytics');
+      const limit = Math.min(Number(req.query.limit) || 100, 500);
+      const accountId = req.query.accountId;
+      const rows = await listMarketSnapshots(db, { limit, accountId });
+      res.json(
+        rows.map((r) => ({
+          ...r,
+          steam_raw: r.steam_raw_json ? JSON.parse(r.steam_raw_json) : null,
+          steam_raw_json: undefined,
+        }))
+      );
+    } catch (e) {
+      next(e);
+    }
   });
 
   router.get('/logs', async (req, res, next) => {

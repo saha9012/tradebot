@@ -1,13 +1,21 @@
-﻿const { evaluate } = require('../strategy/strategyEngine');
 const { get, run, logAudit, all } = require('../db/database');
 const { mergeStrategyConfig } = require('../strategy/defaults');
 const { formatSkipReason } = require('../util/auditMessages');
+const { saveMarketSnapshot } = require('../db/marketAnalytics');
 const { MarketScanner } = require('../market/marketScanner');
 const { MarketExecutor } = require('../market/marketExecutor');
 const { InventorySeller } = require('../market/inventorySeller');
 const { PriceFetcher } = require('../providers/steam/priceFetcher');
 const { RateLimiter } = require('../jobs/rateLimiter');
-const { rateLimitMinMs, rateLimitJitterMs, scanTickMs, sellTickMs } = require('../config');
+const {
+  rateLimitMinMs,
+  rateLimitJitterMs,
+  scanTickMs,
+  sellTickMs,
+  marketCatalogSyncMs,
+  marketPriceMode,
+} = require('../config');
+const { syncGameCatalog } = require('../market/marketCatalogSync');
 const { RelistScheduler } = require('../jobs/relistScheduler');
 
 class BotEngine {
@@ -30,6 +38,8 @@ class BotEngine {
     this.scanTickBusy = false;
     this.sellTickBusy = false;
     this.lastRateLimitLog = 0;
+    this.catalogSyncInterval = null;
+    this.catalogSyncBusy = false;
   }
 
   shouldLogSkip(accountId) {
@@ -80,14 +90,47 @@ class BotEngine {
     if (this.scanInterval) clearInterval(this.scanInterval);
     this.relistScheduler.start();
     this.scanInterval = setInterval(() => this.tickScan().catch(console.error), scanTickMs);
+    this.startCatalogSync();
     await this.tickScan();
-    return { runningScan: true };
+    return { runningScan: true, marketPriceMode };
+  }
+
+  startCatalogSync() {
+    if (this.catalogSyncInterval) return;
+    this.catalogSyncInterval = setInterval(
+      () => this.tickCatalogSync().catch(console.error),
+      marketCatalogSyncMs
+    );
+    this.tickCatalogSync().catch(console.error);
+  }
+
+  stopCatalogSync() {
+    if (this.catalogSyncInterval) {
+      clearInterval(this.catalogSyncInterval);
+      this.catalogSyncInterval = null;
+    }
+  }
+
+  async tickCatalogSync() {
+    if (this.catalogSyncBusy) return;
+    this.catalogSyncBusy = true;
+    try {
+      const accounts = await this.getEnabledAccounts();
+      for (const acc of accounts) {
+        const session = this.accountPool.getSession(acc.id);
+        if (!session?.cookieHeader) continue;
+        await syncGameCatalog(this.priceFetcher, this.db, acc.game, session, { maxPages: 30 });
+      }
+    } finally {
+      this.catalogSyncBusy = false;
+    }
   }
 
   async stopScan() {
     await this.setState('running_scan', false);
     await this.setState('running', false);
     this.relistScheduler.stop();
+    this.stopCatalogSync();
     if (this.scanInterval) {
       clearInterval(this.scanInterval);
       this.scanInterval = null;
@@ -224,55 +267,94 @@ class BotEngine {
       /* optional */
     }
 
-    const scanLimit = Math.min(
-      config.maxBuyOrders ?? 10,
-      config.scanItemsPerTick ?? 5
-    );
-
-    const { items, error, meta } = await this.marketScanner.scanAccount(
+    const batch = await this.marketScanner.processScanBatch(
       session,
       account.id,
       account.game,
-      config,
-      { maxItems: scanLimit }
+      config
     );
 
-    if (error) {
+    if (!batch.ok) {
       await logAudit(this.db, {
         accountId: account.id,
-        level: 'warn',
-        action: 'scan_error',
-        message: error,
-        meta,
+        level: batch.error?.includes('нет лотов') ? 'info' : 'warn',
+        action: batch.error?.includes('нет лотов') ? 'scan_empty' : 'scan_error',
+        message: batch.error,
+        meta: batch.scanInfo,
       });
       return;
     }
 
-    if (!items.length) {
+    const { scanInfo, results, appId } = batch;
+
+    for (const result of results) {
+      const { hashName, listingUrl, decision, item, marketData, fetchError } = result;
+      const nameId = marketData?.itemNameId || item?.itemNameId || null;
+      const priceSource = marketData?.priceSource || (fetchError ? 'нет данных' : '—');
+
+      const analyticsId = await saveMarketSnapshot(this.db, {
+        accountId: account.id,
+        game: account.game,
+        appId,
+        marketHashName: hashName,
+        itemNameId: nameId,
+        highestBuyOrder: marketData?.highestBuyOrder ?? null,
+        lowestListing: marketData?.lowestListing ?? null,
+        buyOrderPrice: decision.action === 'buy' ? decision.buyOrderPrice : null,
+        sellListingPrice: decision.sellListingPrice ?? marketData?.lowestListing ?? null,
+        profit: decision.profit ?? null,
+        profitPercent: decision.profitPercent ?? null,
+        salesPerDay: marketData?.salesPerDay ?? null,
+        salesPerWeek: marketData?.salesPerWeek ?? null,
+        priceSource,
+        decision: decision.action,
+        skipReason: decision.action === 'skip' ? decision.reason : null,
+        listingUrl,
+        steamRaw: marketData?.steamRaw ?? null,
+      });
+
+      const liq =
+        marketData != null
+          ? `ликв ${marketData.salesPerDay ?? 0}/д ${marketData.salesPerWeek ?? 0}/н`
+          : 'ликв —';
+
+      const buyStr =
+        marketData?.highestBuyOrder != null ? String(marketData.highestBuyOrder) : '—';
+      const sellStr = marketData?.lowestListing != null ? String(marketData.lowestListing) : '—';
+
+      let shortMessage;
+      if (fetchError) {
+        shortMessage = `✗ ${hashName} | buy ${buyStr} sell ${sellStr} | ${fetchError}`;
+      } else if (decision.action === 'buy') {
+        shortMessage = `✓ ${hashName} | buy ${buyStr} → ${decision.buyOrderPrice} | sell ${sellStr} | +${decision.profit}₽ | ${priceSource} | ${liq}`;
+      } else {
+        shortMessage = `✗ ${hashName} | buy ${buyStr} sell ${sellStr} | ${formatSkipReason(decision.reason)} | ${priceSource} | ${liq}`;
+      }
+
       await logAudit(this.db, {
         accountId: account.id,
-        action: 'scan_empty',
-        message: 'Поиск: нет подходящих предметов',
-        meta,
+        action: 'market_check',
+        message: shortMessage,
+        meta: { analyticsId, listingUrl, scanInfo },
       });
-      return;
+
+      if (decision.action === 'buy' && item) {
+        await this.handleDecision(account, config, item, decision, {
+          listingUrl,
+          analyticsId,
+          appId,
+          itemNameId: nameId,
+        });
+      }
     }
 
-    await logAudit(this.db, {
-      accountId: account.id,
-      action: 'scan_cycle',
-      message: meta?.label
-        ? `Поиск: ${meta.label} → ${meta.nextLabel || '—'}. Лотов: ${items.length}`
-        : `Поиск: просмотрено ${items.length} лотов`,
-      meta,
-    });
-
-    let buyCount = 0;
-    for (const item of items) {
-      if (buyCount >= (config.maxBuyOrders ?? 10)) break;
-      const decision = evaluate(account.game, config, item);
-      await this.handleDecision(account, config, item, decision);
-      if (decision.action === 'buy') buyCount += 1;
+    if (scanInfo?.label) {
+      await logAudit(this.db, {
+        accountId: account.id,
+        action: 'scan_cycle',
+        message: `Тик ×${results.length}: ${scanInfo.label} → ${scanInfo.nextLabel || '—'}`,
+        meta: scanInfo,
+      });
     }
   }
 
@@ -324,7 +406,7 @@ class BotEngine {
     }
   }
 
-  async handleDecision(account, config, item, decision) {
+  async handleDecision(account, config, item, decision, extra = {}) {
     const dryRun = config.dryRun ? 1 : 0;
 
     if (decision.action === 'buy') {
@@ -339,16 +421,29 @@ class BotEngine {
 
         await run(
           this.db,
-          `INSERT INTO trades (account_id, game, action, market_hash_name, price, profit, dry_run)
-           VALUES (?, ?, 'buy', ?, ?, ?, ?)`,
-          [account.id, account.game, decision.marketHashName, decision.buyOrderPrice, decision.profit, dryRun]
+          `INSERT INTO trades (
+            account_id, game, action, market_hash_name, price, profit, dry_run,
+            listing_url, app_id, item_name_id, analytics_id
+          ) VALUES (?, ?, 'buy', ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            account.id,
+            account.game,
+            decision.marketHashName,
+            decision.buyOrderPrice,
+            decision.profit,
+            dryRun,
+            extra.listingUrl || item.listingUrl || null,
+            extra.appId ?? item.appId ?? null,
+            extra.itemNameId ?? item.itemNameId ?? null,
+            extra.analyticsId ?? null,
+          ]
         );
 
         await logAudit(this.db, {
           accountId: account.id,
           action: dryRun ? 'dry_run_buy' : 'buy',
-          message: `${dryRun ? '[тест] Купил бы' : 'Покупка'} «${decision.marketHashName}» @ ${decision.buyOrderPrice} ₽`,
-          meta: { ...decision, buyResult },
+          message: `${dryRun ? '[тест]' : ''} buy ${decision.marketHashName} @ ${decision.buyOrderPrice}₽`,
+          meta: { ...decision, buyResult, listingUrl: extra.listingUrl },
         });
       } catch (err) {
         await logAudit(this.db, {
@@ -359,17 +454,6 @@ class BotEngine {
           meta: { item: decision.marketHashName },
         });
       }
-    } else {
-      await logAudit(this.db, {
-        accountId: account.id,
-        action: decision.reason,
-        message: `Пропуск «${decision.marketHashName}»: ${formatSkipReason(decision.reason)}${
-          decision.meta?.profit != null
-            ? ` (прибыль ~${decision.meta.profit} ₽, покупка ${decision.meta.buyPrice} ₽, после комиссии ~${decision.meta.netSell} ₽)`
-            : ''
-        }`,
-        meta: decision.meta,
-      });
     }
   }
 

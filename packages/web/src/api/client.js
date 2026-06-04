@@ -1,4 +1,4 @@
-﻿const BASE = '/api';
+const BASE = '/api';
 
 async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
@@ -31,6 +31,10 @@ export const api = {
   refreshWallet: (id) => request(`/accounts/${id}/refresh-wallet`, { method: 'POST' }),
   getMarketItem: (game, hashName) => request(`/market/${game}/${encodeURIComponent(hashName)}`),
   getTrades: (limit = 50) => request(`/trades?limit=${limit}`),
+  getAnalytics: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return request(`/analytics?${q}`);
+  },
   getLogs: (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return request(`/logs?${q}`);
@@ -39,4 +43,9 @@ export const api = {
     const q = accountId ? `?accountId=${encodeURIComponent(accountId)}` : '';
     return request(`/logs${q}`, { method: 'DELETE' });
   },
+  getFetchDebug: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return request(`/debug/fetches?${q}`);
+  },
+  clearFetchDebug: () => request('/debug/fetches', { method: 'DELETE' }),
 };

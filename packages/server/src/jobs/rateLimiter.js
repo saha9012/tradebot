@@ -36,9 +36,17 @@ class RateLimiter {
       try {
         return await fn();
       } catch (err) {
-        if (err.message?.includes('429') || err.message?.includes('Too many')) {
+        const msg = String(err?.message || err);
+        if (msg.includes('429') || msg.includes('Too many')) {
           this.pause();
           throw new Error('Rate limited (429) — pausing 5 min');
+        }
+        if (
+          err?.code === 'ECONNRESET' ||
+          msg.includes('ECONNRESET') ||
+          msg.includes('socket hang up')
+        ) {
+          await sleep(3000);
         }
         throw err;
       }

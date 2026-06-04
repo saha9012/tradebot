@@ -10,6 +10,7 @@ const ACTION_RU = {
   scan_error: 'ошибка_сканирования',
   scan_empty: 'скан_пусто',
   scan_cycle: 'скан_цикл',
+  market_check: 'проверка_лота',
   scan_tick_error: 'ошибка_тика',
   rate_limit_pause: 'пауза_лимита',
   steam_error: 'ошибка_steam',
@@ -39,6 +40,7 @@ const ACTION_RU = {
   low_liquidity_week: 'пропуск_ликвид_неделя',
   lane_disabled: 'полоса_выключена',
   unknown_game: 'неизвестная_игра',
+  no_netSell_data: 'пропуск_нет_выручки',
 };
 
 const ERROR_PATTERNS = [
@@ -72,7 +74,9 @@ function formatSkipReason(reason) {
     min_profit: 'мало прибыли',
     low_liquidity: 'мало продаж за сутки',
     low_liquidity_week: 'мало продаж за неделю',
-    no_price_data: 'нет данных по ордерам Steam (нужен автобай и лот)',
+    no_price_data: 'нет цены с маркета',
+    no_buy_order_data: 'нет ордербука (buy), только цена продажи',
+    no_netSell_data: 'нет данных по выручке (оценка)',
     lane_disabled: 'игра отключена в стратегии',
     unknown_game: 'неизвестная игра',
   };
