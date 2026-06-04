@@ -1,4 +1,4 @@
-const sqlite3 = require('sqlite3').verbose();
+﻿const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
 const { dbPath } = require('../config');
@@ -105,6 +105,71 @@ async function initDatabase() {
     PRIMARY KEY (app_id, market_hash_name)
   )`);
 
+  await run(db, `CREATE TABLE IF NOT EXISTS market_item_snapshots (
+    account_id TEXT NOT NULL DEFAULT '',
+    item_id TEXT NOT NULL,
+    game TEXT NOT NULL,
+    app_id INTEGER NOT NULL,
+    market_hash_name TEXT NOT NULL,
+    highest_buy_order REAL,
+    lowest_listing REAL,
+    sales_per_day INTEGER,
+    listing_url TEXT,
+    steam_raw_json TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (account_id, item_id)
+  )`);
+
+  await run(db, `CREATE TABLE IF NOT EXISTS market_item_decisions (
+    account_id TEXT NOT NULL DEFAULT '',
+    item_id TEXT NOT NULL,
+    game TEXT NOT NULL,
+    app_id INTEGER NOT NULL,
+    market_hash_name TEXT NOT NULL,
+    highest_buy_order REAL,
+    lowest_listing REAL,
+    buy_order_price REAL,
+    sell_listing_price REAL,
+    profit REAL,
+    profit_percent REAL,
+    decision TEXT,
+    skip_reason TEXT,
+    listing_url TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (account_id, item_id)
+  )`);
+
+  await run(db, `CREATE TABLE IF NOT EXISTS item_price_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id TEXT NOT NULL DEFAULT '',
+    item_id TEXT NOT NULL,
+    app_id INTEGER,
+    market_hash_name TEXT,
+    highest_buy_order REAL,
+    lowest_listing REAL,
+    sales_per_day INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
+
+  await run(db, `CREATE TABLE IF NOT EXISTS market_decisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id TEXT,
+    game TEXT NOT NULL,
+    app_id INTEGER NOT NULL,
+    market_hash_name TEXT NOT NULL,
+    analytics_id INTEGER,
+    highest_buy_order REAL,
+    lowest_listing REAL,
+    buy_order_price REAL,
+    sell_listing_price REAL,
+    profit REAL,
+    profit_percent REAL,
+    decision TEXT,
+    skip_reason TEXT,
+    listing_url TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
+
   await run(db, `CREATE TABLE IF NOT EXISTS market_analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id TEXT,
@@ -175,6 +240,7 @@ async function migrateTradeColumns(db) {
   if (!names.has('app_id')) await add('ALTER TABLE trades ADD COLUMN app_id INTEGER');
   if (!names.has('item_name_id')) await add('ALTER TABLE trades ADD COLUMN item_name_id TEXT');
   if (!names.has('analytics_id')) await add('ALTER TABLE trades ADD COLUMN analytics_id INTEGER');
+  if (!names.has('item_id')) await add('ALTER TABLE trades ADD COLUMN item_id TEXT');
 }
 
 async function logAudit(db, { accountId, level, action, message, meta }) {

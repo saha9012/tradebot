@@ -14,6 +14,12 @@ async function migrateBotState(db) {
 async function bootstrapBackground(db, accountPool, botEngine) {
   await migrateBotState(db);
 
+  const { startAnalyticsPurgeScheduler } = require('./db/analyticsPurge');
+  const { startTradesRetentionScheduler } = require('./db/tradesRetention');
+  const { tradesRetentionDays } = require('./config');
+  startAnalyticsPurgeScheduler(db);
+  startTradesRetentionScheduler(db, tradesRetentionDays);
+
   const scanWasOn = await botEngine.isScanRunning();
   const sellWasOn = await botEngine.isSellRunning();
 

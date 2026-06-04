@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { api } from '../api/client';
 import FieldLabel from './FieldLabel';
 
@@ -38,13 +38,7 @@ const FIELDS = [
     key: 'minLiquidity',
     label: 'Мин. продаж в сутки',
     type: 'number',
-    hint: 'Сколько раз предмет должен продаваться за сутки по истории Steam. Если меньше — пропуск (неликвид).',
-  },
-  {
-    key: 'minLiquidityWeek',
-    label: 'Мин. продаж за неделю',
-    type: 'number',
-    hint: 'Минимум сделок за 7 дней по истории Steam. По умолчанию 150 — отсекает долго висящие лоты.',
+    hint: 'Минимум продаж за 24ч (volume из priceoverview Steam). Если меньше — пропуск.',
   },
   {
     key: 'undercutStep',

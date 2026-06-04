@@ -194,11 +194,9 @@ class MarketScanner {
       error: okLiq ? null : marketData._liquidityError || 'нет volume в priceoverview',
       detail: {
         salesPerDay: marketData.salesPerDay,
-        salesPerWeek: marketData.salesPerWeek,
         volumeRaw: marketData.steamRaw?.volumeRaw ?? null,
         via: marketData._liquidityVia ?? marketData.steamRaw?.liquidityVia ?? null,
         priceOverviewUrl: marketData.steamRaw?.priceOverviewUrl ?? null,
-        weekEstimated: marketData.steamRaw?.liquidityWeekEstimated ?? null,
       },
     });
 
@@ -222,8 +220,6 @@ class MarketScanner {
       lowestListing: marketData.lowestListing,
       highestBuyOrder: marketData.highestBuyOrder,
       salesPerDay: marketData.salesPerDay,
-      salesPerWeek: marketData.salesPerWeek,
-      itemNameId: marketData.itemNameId,
       priceSource: marketData.priceSource,
       steamRaw: marketData.steamRaw,
       appId,

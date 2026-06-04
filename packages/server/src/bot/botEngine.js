@@ -1,7 +1,8 @@
-const { get, run, logAudit, all } = require('../db/database');
+﻿const { get, run, logAudit, all } = require('../db/database');
 const { mergeStrategyConfig } = require('../strategy/defaults');
 const { formatSkipReason } = require('../util/auditMessages');
-const { saveMarketSnapshot } = require('../db/marketAnalytics');
+const { upsertItemSnapshot, upsertItemDecision } = require('../db/itemStore');
+const { getItemId } = require('../util/itemId');
 const { MarketScanner } = require('../market/marketScanner');
 const { MarketExecutor } = require('../market/marketExecutor');
 const { InventorySeller } = require('../market/inventorySeller');
@@ -289,33 +290,43 @@ class BotEngine {
 
     for (const result of results) {
       const { hashName, listingUrl, decision, item, marketData, fetchError } = result;
-      const nameId = marketData?.itemNameId || item?.itemNameId || null;
       const priceSource = marketData?.priceSource || (fetchError ? 'нет данных' : '—');
 
-      const analyticsId = await saveMarketSnapshot(this.db, {
+      const itemId = getItemId(hashName);
+
+      await upsertItemSnapshot(this.db, {
         accountId: account.id,
+        itemId,
         game: account.game,
         appId,
         marketHashName: hashName,
-        itemNameId: nameId,
+        highestBuyOrder: marketData?.highestBuyOrder ?? null,
+        lowestListing: marketData?.lowestListing ?? null,
+        salesPerDay: marketData?.salesPerDay ?? null,
+        listingUrl,
+        steamRaw: marketData?.steamRaw ?? null,
+      });
+
+      await upsertItemDecision(this.db, {
+        accountId: account.id,
+        itemId,
+        game: account.game,
+        appId,
+        marketHashName: hashName,
         highestBuyOrder: marketData?.highestBuyOrder ?? null,
         lowestListing: marketData?.lowestListing ?? null,
         buyOrderPrice: decision.action === 'buy' ? decision.buyOrderPrice : null,
         sellListingPrice: decision.sellListingPrice ?? marketData?.lowestListing ?? null,
         profit: decision.profit ?? null,
         profitPercent: decision.profitPercent ?? null,
-        salesPerDay: marketData?.salesPerDay ?? null,
-        salesPerWeek: marketData?.salesPerWeek ?? null,
-        priceSource,
         decision: decision.action,
         skipReason: decision.action === 'skip' ? decision.reason : null,
         listingUrl,
-        steamRaw: marketData?.steamRaw ?? null,
       });
 
       const liq =
         marketData != null
-          ? `ликв ${marketData.salesPerDay ?? 0}/д ${marketData.salesPerWeek ?? 0}/н`
+          ? `ликв ${marketData.salesPerDay ?? 0}/сут`
           : 'ликв —';
 
       const buyStr =
@@ -335,15 +346,14 @@ class BotEngine {
         accountId: account.id,
         action: 'market_check',
         message: shortMessage,
-        meta: { analyticsId, listingUrl, scanInfo },
+        meta: { itemId, listingUrl, scanInfo },
       });
 
       if (decision.action === 'buy' && item) {
         await this.handleDecision(account, config, item, decision, {
           listingUrl,
-          analyticsId,
           appId,
-          itemNameId: nameId,
+          itemId,
         });
       }
     }
@@ -423,8 +433,8 @@ class BotEngine {
           this.db,
           `INSERT INTO trades (
             account_id, game, action, market_hash_name, price, profit, dry_run,
-            listing_url, app_id, item_name_id, analytics_id
-          ) VALUES (?, ?, 'buy', ?, ?, ?, ?, ?, ?, ?, ?)`,
+            listing_url, app_id, item_id
+          ) VALUES (?, ?, 'buy', ?, ?, ?, ?, ?, ?, ?)`,
           [
             account.id,
             account.game,
@@ -434,8 +444,7 @@ class BotEngine {
             dryRun,
             extra.listingUrl || item.listingUrl || null,
             extra.appId ?? item.appId ?? null,
-            extra.itemNameId ?? item.itemNameId ?? null,
-            extra.analyticsId ?? null,
+            extra.itemId ?? getItemId(decision.marketHashName),
           ]
         );
 

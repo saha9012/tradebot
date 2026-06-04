@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { ExternalLink, Trash2, Timer } from 'lucide-react';
 import { api } from '../api/client';
 import GlassCard from '../components/GlassCard';
 
@@ -8,32 +8,71 @@ function fmt(n) {
   return Number(n).toFixed(2);
 }
 
+function formatCountdown(ms) {
+  if (ms <= 0) return 'скоро';
+  const sec = Math.floor(ms / 1000);
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (d > 0) return `${d} д ${h} ч ${m} мин`;
+  if (h > 0) return `${h} ч ${m} мин ${s} с`;
+  if (m > 0) return `${m} мин ${s} с`;
+  return `${s} с`;
+}
+
 export default function Analytics() {
   const [rows, setRows] = useState([]);
   const [accountId, setAccountId] = useState('');
+  const [purge, setPurge] = useState(null);
+  const [clearing, setClearing] = useState(false);
+  const [now, setNow] = useState(Date.now());
 
-  const load = () => {
+  const load = useCallback(() => {
     const params = accountId ? { accountId, limit: 150 } : { limit: 150 };
     api.getAnalytics(params).then(setRows).catch(console.error);
-  };
+    api.getAnalyticsPurgeSchedule().then(setPurge).catch(console.error);
+  }, [accountId]);
 
   useEffect(() => {
     load();
     const t = setInterval(load, 12000);
     return () => clearInterval(t);
-  }, [accountId]);
+  }, [load]);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const msLeft = purge ? Math.max(0, purge.nextPurgeAt - now) : null;
+
+  const onClear = async () => {
+    if (
+      !window.confirm(
+        'Очистить аналитику, решения и логи цен? Сделки и их ID не удаляются.'
+      )
+    )
+      return;
+    setClearing(true);
+    try {
+      await api.clearAnalytics();
+      setRows([]);
+      await load();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setClearing(false);
+    }
+  };
 
   return (
     <>
       <h1 className="page-title">
         <span className="text-gradient">Аналитика</span>
       </h1>
-      <p className="mb-6 max-w-2xl text-sm text-white/50">
-        Итог проверки: цены, решение, ликвидность. Пошаговые запросы к Steam (listing,
-        histogram…) — на вкладке «Отладка fetch». В «Логах» — одна короткая строка.
-      </p>
 
-      <div className="actions mb-6">
+      <div className="actions mb-6 flex-wrap">
         <label className="flex items-center gap-2 text-sm text-white/50">
           Аккаунт
           <select
@@ -50,6 +89,32 @@ export default function Analytics() {
         <button type="button" className="btn" onClick={load}>
           Обновить
         </button>
+        {purge != null && (
+          <span className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/60">
+            <Timer className="h-4 w-4 text-cyan-400" />
+            Авто-очистка через {formatCountdown(msLeft)}
+            {purge.rowCount != null && (
+              <span className="text-white/35">
+                · записей: {purge.rowCount}
+                {purge.analyticsCount != null && (
+                  <span>
+                    {' '}
+                    (данные {purge.analyticsCount}, решения {purge.decisionsCount ?? 0})
+                  </span>
+                )}
+              </span>
+            )}
+          </span>
+        )}
+        <button
+          type="button"
+          className="btn flex items-center gap-2 border-red-500/30 text-red-300 hover:bg-red-500/10"
+          onClick={onClear}
+          disabled={clearing}
+        >
+          <Trash2 className="h-4 w-4" />
+          {clearing ? 'Очистка…' : 'Очистить аналитику'}
+        </button>
       </div>
 
       <GlassCard className="max-w-[min(100%,1400px)]">
@@ -57,56 +122,28 @@ export default function Analytics() {
           <table className="analytics-table w-full text-left text-xs">
             <thead>
               <tr>
-                <th>Время</th>
+                <th>ID</th>
+                <th>Обновлено</th>
                 <th>Предмет</th>
-                <th>nameid</th>
                 <th>Buy</th>
                 <th>Sell</th>
-                <th>Прибыль</th>
-                <th>%</th>
-                <th>Ликв. д/н</th>
-                <th>Источник</th>
-                <th>Решение</th>
+                <th>Продаж/24ч</th>
                 <th>Ссылка</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
+                  <td className="font-mono text-cyan-300/80">{r.item_id || '—'}</td>
                   <td className="whitespace-nowrap text-white/60">
-                    {new Date(r.created_at).toLocaleString('ru')}
+                    {new Date(r.updated_at || r.created_at).toLocaleString('ru')}
                   </td>
                   <td className="max-w-[200px] truncate font-medium" title={r.market_hash_name}>
                     {r.market_hash_name}
                   </td>
-                  <td className="font-mono text-cyan-300/90">{r.item_name_id || '—'}</td>
-                  <td>{fmt(r.buy_order_price ?? r.highest_buy_order)}</td>
+                  <td>{fmt(r.highest_buy_order)}</td>
                   <td>{fmt(r.lowest_listing)}</td>
-                  <td className={r.profit > 0 ? 'text-emerald-400' : ''}>{fmt(r.profit)}</td>
-                  <td>{r.profit_percent != null ? `${r.profit_percent}%` : '—'}</td>
-                  <td>
-                    {r.sales_per_day ?? 0} / {r.sales_per_week ?? 0}
-                  </td>
-                  <td>
-                    <span
-                      className={`rounded px-1.5 py-0.5 ${
-                        r.price_source === 'histogram'
-                          ? 'bg-emerald-500/20 text-emerald-300'
-                          : 'bg-amber-500/20 text-amber-300'
-                      }`}
-                    >
-                      {r.price_source || '—'}
-                    </span>
-                  </td>
-                  <td>
-                    {r.decision === 'buy' ? (
-                      <span className="text-emerald-400">buy</span>
-                    ) : (
-                      <span className="text-white/50" title={r.skip_reason}>
-                        skip
-                      </span>
-                    )}
-                  </td>
+                  <td>{r.sales_per_day ?? 0}</td>
                   <td>
                     {r.listing_url ? (
                       <a
@@ -129,7 +166,7 @@ export default function Analytics() {
         </div>
         {rows.length === 0 && (
           <p className="py-8 text-center text-sm text-white/40">
-            Пока нет записей. Запустите поиск — данные появятся после проверки лотов.
+            Пока нет данных Steam. Запустите поиск — появятся цены и ликвидность.
           </p>
         )}
       </GlassCard>

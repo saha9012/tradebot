@@ -1,4 +1,4 @@
-import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
+﻿import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -6,6 +6,7 @@ import {
   History,
   ScrollText,
   BarChart3,
+  ListChecks,
   Bug,
   Zap,
 } from 'lucide-react';
@@ -18,12 +19,14 @@ import SettingsPage from './pages/Settings';
 import HistoryPage from './pages/History';
 import Logs from './pages/Logs';
 import Analytics from './pages/Analytics';
+import Decisions from './pages/Decisions';
 import FetchDebug from './pages/FetchDebug';
 
 const links = [
   { to: '/', label: 'Обзор', icon: LayoutDashboard },
   { to: '/analytics', label: 'Аналитика', icon: BarChart3 },
-  { to: '/debug-fetch', label: 'Отладка fetch', icon: Bug, temp: true },
+  { to: '/decisions', label: 'Решения', icon: ListChecks },
+  { to: '/debug-fetch', label: 'Отладка', icon: Bug },
   { to: '/settings', label: 'Настройки', icon: Settings },
   { to: '/history', label: 'Сделки', icon: History },
   { to: '/logs', label: 'Логи', icon: ScrollText },
@@ -83,11 +86,6 @@ export default function App() {
                     />
                   </motion.span>
                   {l.label}
-                  {l.temp && (
-                    <span className="ml-1 rounded bg-amber-500/25 px-1 text-[9px] uppercase text-amber-300">
-                      dev
-                    </span>
-                  )}
                   {isActive && (
                     <span className="ml-auto h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#00f0ff]" />
                   )}
@@ -116,6 +114,7 @@ export default function App() {
           <Routes location={location}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/decisions" element={<Decisions />} />
             <Route path="/debug-fetch" element={<FetchDebug />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/history" element={<HistoryPage />} />

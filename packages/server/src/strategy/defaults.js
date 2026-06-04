@@ -5,7 +5,6 @@ const BASE = {
   maxProfitPercentHighTier: 24,
   highTierPriceFrom: 200,
   minLiquidity: 15,
-  minLiquidityWeek: 150,
   undercutStep: 0.01,
   balanceThreshold: 5000,
   maxSpendPerDay: 5000,

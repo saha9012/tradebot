@@ -1,4 +1,4 @@
-require('dotenv').config({ path: require('path').join(__dirname, '../../../.env') });
+﻿require('dotenv').config({ path: require('path').join(__dirname, '../../../.env') });
 
 const path = require('path');
 
@@ -17,4 +17,11 @@ module.exports = {
   /** только search/render (DOM data-price), sell с ленты маркета */
   marketPriceMode: (process.env.BOT_MARKET_PRICE_MODE || 'simple').toLowerCase(),
   marketCatalogSyncMs: Number(process.env.BOT_CATALOG_SYNC_MS) || 60 * 60 * 1000,
+  /** Очистка аналитики / решений / логов цен (мс), по умолчанию 7 дней */
+  analyticsPurgeIntervalMs:
+    Number(process.env.BOT_ANALYTICS_PURGE_DAYS) > 0
+      ? Number(process.env.BOT_ANALYTICS_PURGE_DAYS) * 24 * 60 * 60 * 1000
+      : 7 * 24 * 60 * 60 * 1000,
+  /** Сделки старше N дней удаляются; item_id в сделках сохраняется до удаления строки */
+  tradesRetentionDays: Math.max(1, Number(process.env.BOT_TRADES_RETENTION_DAYS) || 14),
 };

@@ -355,10 +355,8 @@ class PriceFetcher {
     const { body, via } = await this.fetchPriceOverviewRaw(appId, marketHashName, session);
     const parsed = parsePriceOverviewResponse(body);
     const salesPerDay = parsed.volume24h ?? 0;
-    const salesPerWeek = salesPerDay > 0 ? Math.round(salesPerDay * 7) : 0;
     return {
       salesPerDay,
-      salesPerWeek,
       via,
       volumeRaw: parsed.volumeRaw,
       lowestPriceRub: parsed.lowestPriceRub,
@@ -366,7 +364,6 @@ class PriceFetcher {
       priceOverviewUrl: this.priceOverviewUrl(appId, marketHashName),
       raw: body,
       error: parsed.error,
-      weekEstimated: true,
     };
   }
 
@@ -1160,25 +1157,24 @@ class PriceFetcher {
     }
 
     let salesPerDay = 0;
-    let salesPerWeek = 0;
     try {
-      const vol = await this.scheduleSteam('pricehistory', () =>
-        this.fetchSalesVolumeFromHistory(appId, marketHashName, cookies)
+      const vol = await this.scheduleSteam('priceoverview', () =>
+        this.fetchSalesVolumeFromPriceOverview(appId, marketHashName, session)
       );
       salesPerDay = vol.salesPerDay;
-      salesPerWeek = vol.salesPerWeek;
       fetchSteps.push({
-        step: 'pricehistory',
-        ok: true,
+        step: 'priceoverview',
+        ok: vol.salesPerDay > 0,
         salesPerDay,
-        salesPerWeek,
-        note: vol.note || null,
+        volumeRaw: vol.volumeRaw,
+        via: vol.via,
+        error: vol.error,
       });
-      steamRaw = { ...steamRaw, pricehistory: vol.raw };
-      if (ctx?.traceId) await log('pricehistory', true, null, fetchSteps[fetchSteps.length - 1]);
+      steamRaw = { ...steamRaw, priceoverview: vol.raw };
+      if (ctx?.traceId) await log('priceoverview', vol.salesPerDay > 0, vol.error, fetchSteps[fetchSteps.length - 1]);
     } catch (err) {
-      fetchSteps.push({ step: 'pricehistory', ok: false, error: err.message });
-      if (ctx?.traceId) await log('pricehistory', false, err.message);
+      fetchSteps.push({ step: 'priceoverview', ok: false, error: err.message });
+      if (ctx?.traceId) await log('priceoverview', false, err.message);
     }
 
     const data = {
@@ -1187,7 +1183,6 @@ class PriceFetcher {
       lowestListing,
       highestBuyOrder,
       salesPerDay,
-      salesPerWeek,
       itemNameId: itemNameId ? String(itemNameId) : null,
       priceSource: priceSource || 'histogram',
       steamRaw: { ...steamRaw, fetchSteps },
@@ -1391,13 +1386,11 @@ class PriceFetcher {
         this.fetchSalesVolumeFromPriceOverview(appId, marketHashName, session)
       );
       data.salesPerDay = vol.salesPerDay;
-      data.salesPerWeek = vol.salesPerWeek;
       data.steamRaw = {
         ...data.steamRaw,
         volumeRaw: vol.volumeRaw,
         priceOverviewUrl: vol.priceOverviewUrl,
         liquidityVia: vol.via,
-        liquidityWeekEstimated: vol.weekEstimated,
         priceoverviewError: vol.error,
       };
       data._liquidityOk = vol.salesPerDay > 0;
@@ -1425,8 +1418,6 @@ class PriceFetcher {
       lowestListing,
       highestBuyOrder: null,
       salesPerDay: 0,
-      salesPerWeek: 0,
-      itemNameId: null,
       priceSource: 'search_render_dom',
       steamRaw: { qty: row?.qty ?? null, listing_url: row?.listing_url ?? null },
       fetchedAt: new Date().toISOString(),

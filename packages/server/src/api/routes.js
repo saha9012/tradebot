@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const { all, get, run } = require('../db/database');
 const { gameToAppId } = require('../providers/steam/priceFetcher');
 const { mergeStrategyConfig, DEFAULT_STRATEGY } = require('../strategy/defaults');
@@ -233,7 +233,9 @@ function createApiRouter(db, accountPool, botEngine) {
       const limit = Math.min(Number(req.query.limit) || 50, 200);
       const rows = await all(db, 'SELECT * FROM trades ORDER BY id DESC LIMIT ?', [limit]);
       res.json(rows);
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   });
 
   router.get('/debug/fetches', async (req, res, next) => {
@@ -267,17 +269,64 @@ function createApiRouter(db, accountPool, botEngine) {
 
   router.get('/analytics', async (req, res, next) => {
     try {
-      const { listMarketSnapshots } = require('../db/marketAnalytics');
+      const { listItemSnapshots } = require('../db/itemStore');
       const limit = Math.min(Number(req.query.limit) || 100, 500);
       const accountId = req.query.accountId;
-      const rows = await listMarketSnapshots(db, { limit, accountId });
+      const rows = await listItemSnapshots(db, { limit, accountId });
       res.json(
         rows.map((r) => ({
           ...r,
+          created_at: r.updated_at,
           steam_raw: r.steam_raw_json ? JSON.parse(r.steam_raw_json) : null,
           steam_raw_json: undefined,
         }))
       );
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  router.get('/analytics/purge-schedule', async (req, res, next) => {
+    try {
+      const { getAnalyticsPurgeSchedule } = require('../db/analyticsPurge');
+      const {
+        countItemSnapshots,
+        countItemDecisions,
+        countPriceLogs,
+      } = require('../db/itemStore');
+      const schedule = await getAnalyticsPurgeSchedule(db);
+      const analyticsCount = await countItemSnapshots(db);
+      const decisionsCount = await countItemDecisions(db);
+      const priceLogCount = await countPriceLogs(db);
+      res.json({
+        ...schedule,
+        rowCount: analyticsCount + decisionsCount + priceLogCount,
+        analyticsCount,
+        decisionsCount,
+        priceLogCount,
+      });
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  router.get('/decisions', async (req, res, next) => {
+    try {
+      const { listItemDecisions } = require('../db/itemStore');
+      const limit = Math.min(Number(req.query.limit) || 100, 500);
+      const accountId = req.query.accountId;
+      const rows = await listItemDecisions(db, { limit, accountId });
+      res.json(rows.map((r) => ({ ...r, created_at: r.updated_at })));
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  router.delete('/analytics', async (req, res, next) => {
+    try {
+      const { purgeMarketAnalytics } = require('../db/analyticsPurge');
+      const result = await purgeMarketAnalytics(db, { manual: true });
+      res.json({ ok: true, ...result });
     } catch (e) {
       next(e);
     }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { api } from '../api/client';
 import GlassCard from '../components/GlassCard';
@@ -20,16 +20,14 @@ export default function History() {
           <table>
             <thead>
               <tr>
-                <th>ID</th>
+                <th>Сделка</th>
+                <th>ID предмета</th>
                 <th>Время</th>
                 <th>Аккаунт</th>
                 <th>Игра</th>
-                <th>Действие</th>
                 <th>Предмет</th>
-                <th>nameid</th>
-                <th>Цена</th>
-                <th>Прибыль</th>
-                <th>Тест</th>
+                <th>Цена, ₽</th>
+                <th>Прибыль, ₽</th>
                 <th>Лот</th>
               </tr>
             </thead>
@@ -37,17 +35,15 @@ export default function History() {
               {trades.map((t) => (
                 <tr key={t.id}>
                   <td>{t.id}</td>
+                  <td className="font-mono text-cyan-300/80">{t.item_id || '—'}</td>
                   <td className="whitespace-nowrap">{new Date(t.created_at).toLocaleString('ru')}</td>
                   <td>{t.account_id}</td>
                   <td>{t.game}</td>
-                  <td>{t.action}</td>
-                  <td className="max-w-[160px] truncate" title={t.market_hash_name}>
+                  <td className="max-w-[220px] truncate font-medium" title={t.market_hash_name}>
                     {t.market_hash_name || '—'}
                   </td>
-                  <td className="font-mono text-xs">{t.item_name_id || '—'}</td>
                   <td>{t.price ?? '—'}</td>
-                  <td>{t.profit ?? '—'}</td>
-                  <td>{t.dry_run ? 'да' : 'нет'}</td>
+                  <td className={t.profit > 0 ? 'text-emerald-400' : ''}>{t.profit ?? '—'}</td>
                   <td>
                     {t.listing_url ? (
                       <a

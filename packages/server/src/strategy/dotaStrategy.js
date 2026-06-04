@@ -1,7 +1,7 @@
 const { sellerProceeds, roundMoney } = require('./profitCalc');
 
 function evaluateBuy(config, item) {
-  const { lowestListing, salesPerDay, salesPerWeek, marketHashName, highestBuyOrder } = item;
+  const { lowestListing, salesPerDay, marketHashName, highestBuyOrder } = item;
 
   if (lowestListing == null) {
     return skip('no_price_data', marketHashName, { highestBuyOrder, lowestListing });
@@ -40,15 +40,8 @@ function evaluateBuy(config, item) {
     });
   }
 
-  const hasLiquidityData = (salesPerDay ?? 0) > 0 || (salesPerWeek ?? 0) > 0;
-  if (hasLiquidityData) {
-    if (salesPerDay < config.minLiquidity) {
-      return skip('low_liquidity', marketHashName, { salesPerDay });
-    }
-    const minWeek = config.minLiquidityWeek ?? 150;
-    if ((salesPerWeek ?? 0) < minWeek) {
-      return skip('low_liquidity_week', marketHashName, { salesPerWeek, minWeek });
-    }
+  if ((salesPerDay ?? 0) > 0 && salesPerDay < config.minLiquidity) {
+    return skip('low_liquidity', marketHashName, { salesPerDay });
   }
 
   const sellListingPrice = roundMoney(Math.max(0.03, lowestListing - config.undercutStep));

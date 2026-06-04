@@ -1,4 +1,4 @@
-const BASE = '/api';
+﻿const BASE = '/api';
 
 async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
@@ -34,6 +34,12 @@ export const api = {
   getAnalytics: (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return request(`/analytics?${q}`);
+  },
+  getAnalyticsPurgeSchedule: () => request('/analytics/purge-schedule'),
+  clearAnalytics: () => request('/analytics', { method: 'DELETE' }),
+  getDecisions: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return request(`/decisions?${q}`);
   },
   getLogs: (params = {}) => {
     const q = new URLSearchParams(params).toString();
