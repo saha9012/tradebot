@@ -24,7 +24,7 @@ export default function HistoryAltFigure({ activePath, mode }) {
           >
             <div className="backdrop-alt-figure__glow" />
             <img
-              src="/alt-girl-cosmic-transparent.png"
+              src={`${import.meta.env.BASE_URL}alt-girl-cosmic-transparent.png`}
               alt=""
               className="backdrop-alt-figure__img"
               loading="lazy"
