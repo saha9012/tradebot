@@ -1,8 +1,8 @@
 ﻿import { useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import BackgroundEffects from './components/BackgroundEffects';
 import CursorGlow from './components/CursorGlow';
-import DevSidebar from './components/DevSidebar';
 import PageTransition from './components/PageTransition';
 import useHorizonMode from './hooks/useHorizonMode';
 import HorizonNav from './horizon/HorizonNav';
@@ -18,7 +18,7 @@ import FetchDebug from './pages/FetchDebug';
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { mode, enterPage, enterHub, setMode } = useHorizonMode();
+  const { mode, enterPage, enterHub } = useHorizonMode();
 
   const handleNodeClick = (path) => {
     navigate(path);
@@ -30,10 +30,6 @@ export default function App() {
 
   const handlePageBackdropDoubleClick = () => {
     enterHub();
-  };
-
-  const handleDevNavigate = () => {
-    setMode('page');
   };
 
   const isHub = mode === 'hub';
@@ -53,23 +49,25 @@ export default function App() {
       <BackgroundEffects />
       <CursorGlow />
 
-      {import.meta.env.DEV && <DevSidebar onNavigate={handleDevNavigate} />}
-
       <div
         className={`relative flex-1 ${isHub ? 'h-screen overflow-hidden' : 'min-h-screen'}`}
       >
         <PageShell mode={mode} onBackdropDoubleClick={handlePageBackdropDoubleClick}>
-          <PageTransition key={location.pathname}>
-            <Routes location={location}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/decisions" element={<Decisions />} />
-              <Route path="/debug-fetch" element={<FetchDebug />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/history" element={<HistoryPage />} />
-              <Route path="/logs" element={<Logs />} />
-            </Routes>
-          </PageTransition>
+          <div className={isHub ? 'relative min-h-[calc(100vh-5rem)]' : 'relative'}>
+            <AnimatePresence mode={isHub ? 'sync' : 'wait'} initial={false}>
+              <PageTransition key={location.pathname} mode={mode}>
+                <Routes location={location}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/analytics" element={<Analytics />} />
+                  <Route path="/decisions" element={<Decisions />} />
+                  <Route path="/debug-fetch" element={<FetchDebug />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/history" element={<HistoryPage />} />
+                  <Route path="/logs" element={<Logs />} />
+                </Routes>
+              </PageTransition>
+            </AnimatePresence>
+          </div>
         </PageShell>
 
         <HorizonNav

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useCallback, useEffect, useRef } from 'react';
 import useHubPan from '../hooks/useHubPan';
+import useMouseParallax from '../hooks/useMouseParallax';
 import HorizonCenter from './HorizonCenter';
 import HorizonEdges from './HorizonEdges';
 import HorizonNode from './HorizonNode';
@@ -15,6 +16,7 @@ function isPathActive(nodePath, activePath) {
 export default function HorizonNav({ mode, activePath, onNodeClick, onBackdropDoubleClick }) {
   const isHub = mode === 'hub';
   const hubPan = useHubPan(isHub);
+  const pageParallax = useMouseParallax(!isHub, 0.42);
   const branchRef = useRef(null);
   const edgesRef = useRef(null);
   const nodeRefs = useRef({});
@@ -56,54 +58,58 @@ export default function HorizonNav({ mode, activePath, onNodeClick, onBackdropDo
   };
 
   return (
-    <motion.div
-      className="horizon-nav-layer absolute inset-0 z-20 overflow-hidden"
-      animate={{
-        scale: isHub ? 1 : 0.55,
-        opacity: isHub ? 1 : 0.42,
-        filter: isHub ? 'blur(0px)' : 'blur(3px)',
-        x: isHub ? hubPan.x : 0,
-        y: 0,
-      }}
-      transition={HORIZON_TRANSITION}
-      style={{
-        pointerEvents: isHub ? 'auto' : 'none',
-        transformOrigin: '50% 48%',
-      }}
-      onDoubleClick={isHub ? handleLayerDoubleClick : undefined}
-    >
-      <div
-        ref={branchRef}
-        className="horizon-branch-band relative mx-auto h-full w-full max-w-[1400px]"
+    <>
+      <motion.div
+        className="horizon-nav-layer absolute inset-0 z-20 overflow-hidden"
+        animate={{
+          scale: isHub ? 1 : 0.85,
+          opacity: isHub ? 1 : 0.42,
+          filter: isHub ? 'blur(0px)' : 'blur(8px)',
+          x: isHub ? hubPan.x : pageParallax.x,
+          y: isHub ? 0 : pageParallax.y,
+          rotate: isHub ? 0 : pageParallax.rotate,
+        }}
+        transition={HORIZON_TRANSITION}
+        style={{
+          pointerEvents: isHub ? 'auto' : 'none',
+          transformOrigin: '50% 48%',
+          willChange: 'transform, filter, opacity',
+        }}
+        onDoubleClick={isHub ? handleLayerDoubleClick : undefined}
       >
-        <HorizonEdges ref={edgesRef} />
+        <div
+          ref={branchRef}
+          className="horizon-branch-band relative mx-auto h-full w-full max-w-[1400px]"
+        >
+          <HorizonEdges ref={edgesRef} />
 
-        {HORIZON_NODES.map((node, i) => {
-          const active = isPathActive(node.path, activePath);
-          const { x, y } = nodePosition(node);
-          return (
-            <HorizonNode
-              key={node.id}
-              node={node}
-              x={x}
-              y={y}
-              active={active}
-              isHub={isHub}
-              index={i}
-              onNodeClick={onNodeClick}
-              onMeasureRef={registerNodeRef}
-            />
-          );
-        })}
-      </div>
+          {HORIZON_NODES.map((node, i) => {
+            const active = isPathActive(node.path, activePath);
+            const { x, y } = nodePosition(node);
+            return (
+              <HorizonNode
+                key={node.id}
+                node={node}
+                x={x}
+                y={y}
+                active={active}
+                isHub={isHub}
+                index={i}
+                onNodeClick={onNodeClick}
+                onMeasureRef={registerNodeRef}
+              />
+            );
+          })}
+        </div>
 
-      <HorizonCenter mode={mode} />
+        {isHub && (
+          <p className="horizon-hub-hint pointer-events-none absolute bottom-6 left-1/2 z-30 -translate-x-1/2 text-center">
+            Клик по узлу — смена страницы на фоне · двойной клик по пустому месту — открыть страницу
+          </p>
+        )}
+      </motion.div>
 
-      {isHub && (
-        <p className="pointer-events-none absolute bottom-6 left-1/2 z-30 -translate-x-1/2 text-center text-[11px] text-white/25">
-          Клик по узлу — смена страницы на фоне · двойной клик по пустому месту — открыть страницу
-        </p>
-      )}
-    </motion.div>
+      <HorizonCenter mode={mode} activePath={activePath} />
+    </>
   );
 }

@@ -18,9 +18,9 @@ export default function PageShell({ mode, children, onBackdropDoubleClick }) {
         isPage ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden'
       }`}
       animate={{
-        scale: isPage ? 1 : 0.8,
+        scale: isPage ? 1 : 0.85,
         opacity: isPage ? 1 : 0.58,
-        filter: isPage ? 'blur(0px)' : 'blur(2px)',
+        filter: isPage ? 'blur(0px)' : 'blur(8px)',
         x: 0,
         y: 0,
       }}
@@ -28,14 +28,16 @@ export default function PageShell({ mode, children, onBackdropDoubleClick }) {
       style={{
         pointerEvents: isPage ? 'auto' : 'none',
         transformOrigin: '50% 50%',
+        willChange: 'transform, filter, opacity',
       }}
       onDoubleClick={handleDoubleClick}
     >
-      <div className="horizon-page-scroll p-6 md:p-8 lg:p-10">
+      {!isPage && <div className="horizon-page-vignette pointer-events-none absolute inset-0 z-[1]" aria-hidden />}
+      <div className="horizon-page-scroll relative z-[2] p-6 md:p-8 lg:p-10">
         <StatusMarquee />
         {children}
         {isPage && (
-          <p className="pointer-events-none mt-8 text-center text-[11px] text-white/20">
+          <p className="horizon-page-hint pointer-events-none mt-8 text-center">
             Двойной клик по пустому месту — вернуться к ветке
           </p>
         )}

@@ -37,19 +37,23 @@ export default function HorizonNode({
   return (
     <div className="horizon-node-anchor" style={{ left: `${x}%`, top: `${y}%` }}>
       <motion.div style={{ x: driftX, y: driftY }}>
-        <motion.button
-          ref={(el) => onMeasureRef?.(node.id, el)}
-          type="button"
-          data-horizon-surface
-          className={`horizon-node ${active ? 'horizon-node--active' : ''}`}
-          onClick={() => onNodeClick?.(node.path)}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.04 * index, duration: 0.35 }}
-          whileHover={isHub ? { x: 6 } : undefined}
+        <div
+          className={`horizon-node-wrap ${isHub ? 'horizon-node-wrap--hub' : ''} ${active ? 'horizon-node-wrap--active' : ''}`}
         >
-          <span className="horizon-node-label">{node.label}</span>
-        </motion.button>
+          <span className="horizon-node-halo" aria-hidden="true" />
+          <motion.button
+            ref={(el) => onMeasureRef?.(node.id, el)}
+            type="button"
+            data-horizon-surface
+            className={`horizon-node ${isHub ? 'horizon-node--hub' : ''} ${active ? 'horizon-node--active' : ''}`}
+            onClick={() => onNodeClick?.(node.path)}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 * index, duration: 0.35 }}
+          >
+            <span className="horizon-node-label">{node.label}</span>
+          </motion.button>
+        </div>
       </motion.div>
     </div>
   );

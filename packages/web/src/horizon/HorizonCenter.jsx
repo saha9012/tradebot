@@ -1,37 +1,53 @@
 import { motion } from 'framer-motion';
-import { HORIZON_CENTER, HORIZON_TRANSITION } from './horizonRoutes';
+import { HORIZON_CENTER, HORIZON_NODES, HORIZON_TRANSITION } from './horizonRoutes';
 
-export default function HorizonCenter({ mode }) {
+function activeNodeLabel(path) {
+  const node = HORIZON_NODES.find((n) =>
+    n.path === '/' ? path === '/' : path === n.path || path.startsWith(`${n.path}/`),
+  );
+  return node?.label ?? 'Обзор';
+}
+
+export default function HorizonCenter({ mode, activePath }) {
   const isHub = mode === 'hub';
+  const sector = activeNodeLabel(activePath);
 
   return (
     <motion.div
       data-horizon-surface
-      className="horizon-center pointer-events-auto absolute"
+      className={`horizon-center pointer-events-none absolute ${isHub ? 'horizon-center--hub' : 'horizon-center--page'}`}
       style={{
         left: `${HORIZON_CENTER.x}%`,
         top: `${HORIZON_CENTER.y}%`,
         width: `${HORIZON_CENTER.widthPct}%`,
+        minWidth: '9.5rem',
         minHeight: HORIZON_CENTER.minHeight,
       }}
       initial={false}
       animate={{
         x: '-50%',
         y: '-50%',
-        scale: isHub ? 1 : 0.9,
-        opacity: isHub ? 1 : 0.45,
+        scale: isHub ? 1 : 0.88,
+        opacity: isHub ? 1 : 0.38,
+        filter: isHub ? 'blur(0px)' : 'blur(6px)',
       }}
       transition={HORIZON_TRANSITION}
     >
-      <div className="horizon-center-inner flex h-full min-h-[140px] flex-col items-center justify-center rounded-2xl px-6 py-8 text-center">
-        <p className="font-display text-[10px] font-bold uppercase tracking-[0.35em] text-white/35">
-          Трейд судьбы
+      <span className="horizon-center-halo" aria-hidden="true" />
+      <div className="horizon-center-inner">
+        <span className="horizon-center-corner horizon-center-corner--tl" aria-hidden="true" />
+        <span className="horizon-center-corner horizon-center-corner--tr" aria-hidden="true" />
+        <span className="horizon-center-corner horizon-center-corner--bl" aria-hidden="true" />
+        <span className="horizon-center-corner horizon-center-corner--br" aria-hidden="true" />
+
+        <p className="horizon-center-eyebrow font-display">Трейд судьбы</p>
+        <p className="horizon-center-title font-display">
+          ИНДИ<span className="horizon-center-z">З</span>
         </p>
-        <p className="font-display mt-3 text-2xl font-extrabold tracking-tight text-white md:text-3xl">
-          ИНДИ<span className="text-lime">З</span>
-        </p>
-        <p className="mt-4 max-w-[12rem] text-[11px] leading-relaxed text-white/28">
-          антураж · позже сюда можно встроить блок
+        <div className="horizon-center-divider" aria-hidden="true" />
+        <p className="horizon-center-sector">
+          <span className="horizon-center-sector-label">сектор</span>
+          <span className="horizon-center-sector-value">{sector}</span>
         </p>
       </div>
     </motion.div>
