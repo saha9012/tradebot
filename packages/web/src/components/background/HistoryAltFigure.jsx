@@ -2,14 +2,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import useMouseParallax from '../../hooks/useMouseParallax';
 
 export default function HistoryAltFigure({ activePath, mode }) {
-  const visible = activePath === '/history' && mode === 'page';
-  const parallax = useMouseParallax(visible, 0.55);
+  const visible = activePath === '/history';
+  const parallax = useMouseParallax(visible && mode === 'page', 0.55);
 
   return (
     <AnimatePresence>
       {visible && (
         <motion.div
-          className="backdrop-alt-figure"
+          className={`backdrop-alt-figure${mode === 'page' ? '' : ' backdrop-alt-figure--hub'}`}
           aria-hidden
           initial={{ opacity: 0, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -24,7 +24,7 @@ export default function HistoryAltFigure({ activePath, mode }) {
           >
             <div className="backdrop-alt-figure__glow" />
             <img
-              src={`${import.meta.env.BASE_URL}alt-girl-cosmic-transparent.png`}
+              src={`${import.meta.env.BASE_URL}alt-girl-cosmic-transparent.png?v=7`}
               alt=""
               className="backdrop-alt-figure__img"
               loading="lazy"

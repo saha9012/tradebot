@@ -436,60 +436,66 @@ body {
 
 .backdrop-alt-figure {
   position: absolute;
-  right: 1.5%;
-  top: 6%;
+  right: 2%;
+  top: 0;
+  bottom: 0;
   z-index: 3;
-  width: min(42vw, 540px);
+  width: min(40vw, 520px);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   will-change: transform, opacity;
 }
 
 .backdrop-alt-figure__inner {
   position: relative;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
+  width: 100%;
   will-change: transform;
 }
 
 .backdrop-alt-figure__glow {
   position: absolute;
-  right: 8%;
-  top: 18%;
-  width: 72%;
-  height: 68%;
+  left: 50%;
+  top: 50%;
+  width: 85%;
+  height: 75%;
+  transform: translate(-40%, -50%);
   border-radius: 50%;
   background: radial-gradient(
     ellipse at center,
-    rgba(139, 92, 246, 0.28) 0%,
-    rgba(0, 240, 255, 0.1) 42%,
+    rgba(139, 92, 246, 0.26) 0%,
+    rgba(0, 240, 255, 0.08) 45%,
     transparent 72%
   );
-  filter: blur(28px);
-  opacity: 0.85;
+  filter: blur(32px);
+  opacity: 0.9;
 }
 
 .backdrop-alt-figure__img {
   position: relative;
   z-index: 1;
+  display: block;
   width: 100%;
   height: auto;
-  max-height: min(78vh, 760px);
+  max-height: min(72vh, 720px);
   object-fit: contain;
-  object-position: top right;
-  opacity: 0.92;
-  filter: saturate(1.12) contrast(1.06) drop-shadow(0 0 48px rgba(139, 92, 246, 0.35));
-  -webkit-mask-image:
-    linear-gradient(to left, black 50%, transparent 100%),
-    linear-gradient(to bottom, black 78%, transparent 100%);
-  mask-image:
-    linear-gradient(to left, black 50%, transparent 100%),
-    linear-gradient(to bottom, black 78%, transparent 100%);
+  object-position: center right;
+  opacity: 0.94;
+  filter:
+    saturate(1.1)
+    contrast(1.04)
+    drop-shadow(0 0 28px rgba(139, 92, 246, 0.34))
+    drop-shadow(0 0 6px rgba(167, 139, 250, 0.22));
 }
 
 @media (max-width: 1180px) {
   .backdrop-alt-figure {
     display: none;
   }
+}
+
+.backdrop-alt-figure--hub {
+  opacity: 0.55;
 }
 
 .stat-label {
