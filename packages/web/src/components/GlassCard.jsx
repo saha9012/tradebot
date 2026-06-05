@@ -3,6 +3,7 @@
 export default function GlassCard({ title, children, className = '', delay = 0 }) {
   return (
     <motion.div
+      data-horizon-surface
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.4 }}

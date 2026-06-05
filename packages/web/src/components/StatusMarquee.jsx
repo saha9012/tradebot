@@ -11,7 +11,7 @@ export default function StatusMarquee() {
   const items = [...ITEMS, ...ITEMS];
 
   return (
-    <div className="mb-6 overflow-hidden rounded-xl border border-white/5 py-3 glass">
+    <div data-horizon-surface className="mb-6 overflow-hidden rounded-xl border border-white/5 py-3 glass">
       <div className="flex animate-marquee whitespace-nowrap">
         {items.map((item, i) => (
           <span
