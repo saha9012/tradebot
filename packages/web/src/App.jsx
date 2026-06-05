@@ -45,12 +45,12 @@ export default function App() {
   }, [isHub]);
 
   return (
-    <div className="noise relative flex min-h-screen bg-void text-white">
-      <BackgroundEffects />
+    <div className="noise relative isolate flex min-h-screen text-white">
+      <BackgroundEffects activePath={location.pathname} mode={mode} />
       <CursorGlow />
 
       <div
-        className={`relative flex-1 ${isHub ? 'h-screen overflow-hidden' : 'min-h-screen'}`}
+        className={`relative z-10 flex-1 ${isHub ? 'h-screen overflow-hidden' : 'min-h-screen'}`}
       >
         <PageShell mode={mode} onBackdropDoubleClick={handlePageBackdropDoubleClick}>
           <div className={isHub ? 'relative min-h-[calc(100vh-5rem)]' : 'relative'}>

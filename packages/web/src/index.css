@@ -3,6 +3,7 @@
 @theme {
   --font-display: "Syne", system-ui, sans-serif;
   --font-body: "DM Sans", system-ui, sans-serif;
+  --font-gothic: "Cinzel", "Syne", serif;
   --color-void: #030306;
   --color-surface: #0c0c14;
   --color-cyan: #00f0ff;
@@ -34,6 +35,10 @@ body {
 
 .font-display {
   font-family: var(--font-display);
+}
+
+.font-gothic {
+  font-family: var(--font-gothic);
 }
 
 .glass {
@@ -84,6 +89,326 @@ body {
   mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 20%, transparent 70%);
 }
 
+/* ——— Void atmosphere: stars + gothic veil ——— */
+
+.void-backdrop {
+  z-index: 0;
+}
+
+.void-depth {
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 18%, rgba(36, 20, 58, 0.7) 0%, transparent 58%),
+    radial-gradient(ellipse 60% 50% at 82% 72%, rgba(12, 28, 48, 0.55) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 12% 80%, rgba(0, 80, 90, 0.12) 0%, transparent 60%),
+    linear-gradient(180deg, #05050a 0%, #030306 42%, #020204 100%);
+}
+
+.void-vignette {
+  background:
+    radial-gradient(ellipse 85% 75% at 50% 50%, transparent 42%, rgba(2, 2, 4, 0.55) 100%);
+}
+
+.starfield {
+  z-index: 1;
+}
+
+.star {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.star--white {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.star--cyan {
+  background: rgba(0, 240, 255, 0.85);
+}
+
+.star--violet {
+  background: rgba(167, 139, 250, 0.85);
+}
+
+.star--dust {
+  filter: blur(0.2px);
+}
+
+.star--star {
+  opacity: var(--star-base, 0.55);
+  animation: star-twinkle ease-in-out infinite;
+  box-shadow:
+    0 0 5px rgba(255, 255, 255, 0.45),
+    0 0 10px rgba(255, 255, 255, 0.15);
+}
+
+.star--glint {
+  opacity: var(--star-base, 0.8);
+  animation: star-glint ease-in-out infinite;
+  box-shadow:
+    0 0 8px rgba(255, 255, 255, 0.75),
+    0 0 18px rgba(0, 240, 255, 0.28),
+    0 0 32px rgba(0, 240, 255, 0.1);
+}
+
+.star--glint.star--cyan {
+  box-shadow:
+    0 0 8px rgba(0, 240, 255, 0.8),
+    0 0 20px rgba(0, 240, 255, 0.35),
+    0 0 36px rgba(0, 240, 255, 0.12);
+}
+
+.star--glint.star--violet {
+  box-shadow:
+    0 0 8px rgba(167, 139, 250, 0.8),
+    0 0 20px rgba(167, 139, 250, 0.32),
+    0 0 36px rgba(167, 139, 250, 0.12);
+}
+
+@keyframes star-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+}
+
+@keyframes star-glint {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translate(-50%, -50%) scale(0.85);
+    filter: blur(0);
+  }
+  35% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.35);
+    filter: blur(0.3px);
+  }
+  55% {
+    opacity: 0.65;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+}
+
+.gothic-veil {
+  z-index: 1;
+  color: rgba(167, 139, 250, 0.7);
+  opacity: 0.55;
+  mask-image: radial-gradient(ellipse 58% 52% at 50% 46%, transparent 36%, black 74%);
+  -webkit-mask-image: radial-gradient(ellipse 58% 52% at 50% 46%, transparent 36%, black 74%);
+}
+
+.gothic-veil__pillar {
+  position: absolute;
+  top: 4%;
+  width: 28px;
+  height: 78%;
+  opacity: 0.5;
+}
+
+.gothic-veil__pillar--left {
+  left: 0.4%;
+}
+
+.gothic-veil__pillar--right {
+  right: 0.4%;
+}
+
+.gothic-veil__arch {
+  position: absolute;
+  width: min(14vw, 170px);
+  height: auto;
+  opacity: 0.65;
+}
+
+.gothic-veil__arch--tl {
+  top: 0;
+  left: 0;
+}
+
+.gothic-veil__arch--tr {
+  top: 0;
+  right: 0;
+}
+
+.gothic-veil__arch--bl {
+  bottom: 0;
+  left: 0;
+  width: min(16vw, 180px);
+  opacity: 0.65;
+}
+
+.gothic-veil__arch--br {
+  bottom: 0;
+  right: 0;
+  width: min(16vw, 180px);
+  opacity: 0.65;
+  transform: scaleX(-1);
+}
+
+.gothic-veil__rose {
+  position: absolute;
+  left: 50%;
+  top: -6%;
+  width: min(32vw, 260px);
+  transform: translateX(-50%);
+  opacity: 0.4;
+}
+
+/* ——— Alt veil (тёмная альтушка, периферия) ——— */
+
+.alt-veil {
+  z-index: 2;
+  mask-image:
+    radial-gradient(ellipse 52% 48% at 50% 44%, transparent 38%, black 72%),
+    linear-gradient(to top, black 0%, black 14%, transparent 26%);
+  -webkit-mask-image:
+    radial-gradient(ellipse 52% 48% at 50% 44%, transparent 38%, black 72%),
+    linear-gradient(to top, black 0%, black 14%, transparent 26%);
+}
+
+.alt-veil__rune {
+  position: absolute;
+  top: 50%;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.32);
+  writing-mode: vertical-rl;
+  transform: translateY(-50%);
+}
+
+.alt-veil__rune--left {
+  left: 0.8%;
+}
+
+.alt-veil__rune--right {
+  right: 0.8%;
+}
+
+.alt-veil__sticker {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.35rem;
+  background: rgba(8, 8, 14, 0.55);
+  transform: rotate(-6deg);
+  opacity: 0.55;
+}
+
+.alt-veil__sticker--bl {
+  left: 2.5%;
+  bottom: 14%;
+}
+
+.alt-veil__sticker--br {
+  right: 2.5%;
+  bottom: 16%;
+  transform: rotate(5deg);
+}
+
+.alt-veil__sticker-icon {
+  font-size: 0.85rem;
+  color: rgba(212, 255, 0, 0.45);
+}
+
+.alt-veil__sticker-text {
+  font-size: 0.52rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(0, 240, 255, 0.38);
+}
+
+.alt-veil__chain {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 10.5%;
+  height: 1px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.12) 0,
+    rgba(255, 255, 255, 0.12) 6px,
+    transparent 6px,
+    transparent 14px
+  );
+  opacity: 0.45;
+}
+
+.alt-veil__chain::before,
+.alt-veil__chain::after {
+  content: "—";
+  position: absolute;
+  top: -0.45rem;
+  font-size: 0.55rem;
+  color: rgba(167, 139, 250, 0.4);
+}
+
+.alt-veil__chain::before {
+  left: -0.2rem;
+}
+
+.alt-veil__chain::after {
+  right: -0.2rem;
+}
+
+.alt-veil__footer {
+  position: absolute;
+  bottom: 5.5%;
+  left: 50%;
+  display: flex;
+  transform: translateX(-50%);
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.alt-veil__tagline {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: rgba(212, 255, 0, 0.38);
+  text-shadow: 0 0 16px rgba(212, 255, 0, 0.12);
+}
+
+.alt-veil__glyph {
+  font-size: 0.7rem;
+  color: rgba(0, 240, 255, 0.35);
+  opacity: 0.7;
+}
+
+.alt-veil__motto {
+  position: absolute;
+  bottom: 2.8%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.36em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.18);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .star--star,
+  .star--glint {
+    animation: none;
+  }
+}
+
 @keyframes marquee {
   from {
     transform: translateX(0);
@@ -105,6 +430,66 @@ body {
   font-weight: 800;
   letter-spacing: -0.02em;
   margin-bottom: 1.5rem;
+}
+
+/* ——— History backdrop figure (Сделки, слой фона) ——— */
+
+.backdrop-alt-figure {
+  position: absolute;
+  right: 1.5%;
+  top: 6%;
+  z-index: 3;
+  width: min(42vw, 540px);
+  will-change: transform, opacity;
+}
+
+.backdrop-alt-figure__inner {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  will-change: transform;
+}
+
+.backdrop-alt-figure__glow {
+  position: absolute;
+  right: 8%;
+  top: 18%;
+  width: 72%;
+  height: 68%;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(139, 92, 246, 0.28) 0%,
+    rgba(0, 240, 255, 0.1) 42%,
+    transparent 72%
+  );
+  filter: blur(28px);
+  opacity: 0.85;
+}
+
+.backdrop-alt-figure__img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: auto;
+  max-height: min(78vh, 760px);
+  object-fit: contain;
+  object-position: top right;
+  opacity: 0.92;
+  filter: saturate(1.12) contrast(1.06) drop-shadow(0 0 48px rgba(139, 92, 246, 0.35));
+  -webkit-mask-image:
+    linear-gradient(to left, black 50%, transparent 100%),
+    linear-gradient(to bottom, black 78%, transparent 100%);
+  mask-image:
+    linear-gradient(to left, black 50%, transparent 100%),
+    linear-gradient(to bottom, black 78%, transparent 100%);
+}
+
+@media (max-width: 1180px) {
+  .backdrop-alt-figure {
+    display: none;
+  }
 }
 
 .stat-label {
