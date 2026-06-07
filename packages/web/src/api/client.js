@@ -30,7 +30,10 @@ export const api = {
   botEmergencyStop: () => request('/bot/emergency-stop', { method: 'POST' }),
   refreshWallet: (id) => request(`/accounts/${id}/refresh-wallet`, { method: 'POST' }),
   getMarketItem: (game, hashName) => request(`/market/${game}/${encodeURIComponent(hashName)}`),
-  getTrades: (limit = 50) => request(`/trades?limit=${limit}`),
+  getTrades: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return request(`/trades?${q}`);
+  },
   getAnalytics: (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return request(`/analytics?${q}`);
@@ -44,6 +47,14 @@ export const api = {
   getLogs: (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return request(`/logs?${q}`);
+  },
+  getSales: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return request(`/sales?${q}`);
+  },
+  getCompare: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return request(`/compare?${q}`);
   },
   clearLogs: (accountId) => {
     const q = accountId ? `?accountId=${encodeURIComponent(accountId)}` : '';

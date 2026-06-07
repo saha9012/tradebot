@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { api } from '../api/client';
 import GlassCard from '../components/GlassCard';
+import TablePagination from '../components/TablePagination';
+import usePaginatedTable from '../hooks/usePaginatedTable';
 
 function fmt(n) {
   if (n == null || n === '') return '—';
@@ -25,19 +27,21 @@ function skipLabel(reason) {
 }
 
 export default function Decisions() {
-  const [rows, setRows] = useState([]);
   const [accountId, setAccountId] = useState('');
 
-  const load = useCallback(() => {
-    const params = accountId ? { accountId, limit: 150 } : { limit: 150 };
-    api.getDecisions(params).then(setRows).catch(console.error);
-  }, [accountId]);
+  const fetchPage = useCallback(
+    (params) => {
+      const q = accountId ? { ...params, accountId } : params;
+      return api.getDecisions(q);
+    },
+    [accountId],
+  );
 
-  useEffect(() => {
-    load();
-    const t = setInterval(load, 12000);
-    return () => clearInterval(t);
-  }, [load]);
+  const { rows, total, page, setPage, totalPages, pageSize, reload } = usePaginatedTable({
+    fetchPage,
+    deps: [accountId],
+    autoRefreshMs: 12000,
+  });
 
   return (
     <>
@@ -59,7 +63,7 @@ export default function Decisions() {
             <option value="account-3">account-3</option>
           </select>
         </label>
-        <button type="button" className="btn" onClick={load}>
+        <button type="button" className="btn" onClick={reload}>
           Обновить
         </button>
       </div>
@@ -121,11 +125,18 @@ export default function Decisions() {
             </tbody>
           </table>
         </div>
-        {rows.length === 0 && (
+        {total === 0 && (
           <p className="py-8 text-center text-sm text-white/40">
             Пока нет решений. Запустите поиск — бот запишет buy/skip по каждому лоту.
           </p>
         )}
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
       </GlassCard>
     </>
   );

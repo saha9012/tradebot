@@ -230,9 +230,14 @@ function createApiRouter(db, accountPool, botEngine) {
 
   router.get('/trades', async (req, res, next) => {
     try {
-      const limit = Math.min(Number(req.query.limit) || 50, 200);
-      const rows = await all(db, 'SELECT * FROM trades ORDER BY id DESC LIMIT ?', [limit]);
-      res.json(rows);
+      const limit = Math.min(Number(req.query.limit) || 20, 200);
+      const offset = Math.max(Number(req.query.offset) || 0, 0);
+      const totalRow = await get(db, 'SELECT COUNT(*) AS c FROM trades');
+      const rows = await all(db, 'SELECT * FROM trades ORDER BY id DESC LIMIT ? OFFSET ?', [
+        limit,
+        offset,
+      ]);
+      res.json({ rows, total: totalRow?.c ?? 0 });
     } catch (e) {
       next(e);
     }
@@ -269,18 +274,21 @@ function createApiRouter(db, accountPool, botEngine) {
 
   router.get('/analytics', async (req, res, next) => {
     try {
-      const { listItemSnapshots } = require('../db/itemStore');
-      const limit = Math.min(Number(req.query.limit) || 100, 500);
+      const { listItemSnapshots, countItemSnapshots } = require('../db/itemStore');
+      const limit = Math.min(Number(req.query.limit) || 20, 500);
+      const offset = Math.max(Number(req.query.offset) || 0, 0);
       const accountId = req.query.accountId;
-      const rows = await listItemSnapshots(db, { limit, accountId });
-      res.json(
-        rows.map((r) => ({
+      const rows = await listItemSnapshots(db, { limit, offset, accountId });
+      const total = await countItemSnapshots(db, accountId || null);
+      res.json({
+        rows: rows.map((r) => ({
           ...r,
           created_at: r.updated_at,
           steam_raw: r.steam_raw_json ? JSON.parse(r.steam_raw_json) : null,
           steam_raw_json: undefined,
-        }))
-      );
+        })),
+        total,
+      });
     } catch (e) {
       next(e);
     }
@@ -312,11 +320,16 @@ function createApiRouter(db, accountPool, botEngine) {
 
   router.get('/decisions', async (req, res, next) => {
     try {
-      const { listItemDecisions } = require('../db/itemStore');
-      const limit = Math.min(Number(req.query.limit) || 100, 500);
+      const { listItemDecisions, countItemDecisions } = require('../db/itemStore');
+      const limit = Math.min(Number(req.query.limit) || 20, 500);
+      const offset = Math.max(Number(req.query.offset) || 0, 0);
       const accountId = req.query.accountId;
-      const rows = await listItemDecisions(db, { limit, accountId });
-      res.json(rows.map((r) => ({ ...r, created_at: r.updated_at })));
+      const rows = await listItemDecisions(db, { limit, offset, accountId });
+      const total = await countItemDecisions(db, accountId || null);
+      res.json({
+        rows: rows.map((r) => ({ ...r, created_at: r.updated_at })),
+        total,
+      });
     } catch (e) {
       next(e);
     }
@@ -334,16 +347,38 @@ function createApiRouter(db, accountPool, botEngine) {
 
   router.get('/logs', async (req, res, next) => {
     try {
-      const limit = Math.min(Number(req.query.limit) || 100, 500);
+      const limit = Math.min(Number(req.query.limit) || 20, 500);
+      const offset = Math.max(Number(req.query.offset) || 0, 0);
       const accountId = req.query.accountId;
       let rows;
+      let totalRow;
       if (accountId) {
-        rows = await all(db, 'SELECT * FROM audit_log WHERE account_id = ? ORDER BY id DESC LIMIT ?', [accountId, limit]);
+        totalRow = await get(db, 'SELECT COUNT(*) AS c FROM audit_log WHERE account_id = ?', [
+          accountId,
+        ]);
+        rows = await all(
+          db,
+          'SELECT * FROM audit_log WHERE account_id = ? ORDER BY id DESC LIMIT ? OFFSET ?',
+          [accountId, limit, offset]
+        );
       } else {
-        rows = await all(db, 'SELECT * FROM audit_log ORDER BY id DESC LIMIT ?', [limit]);
+        totalRow = await get(db, 'SELECT COUNT(*) AS c FROM audit_log');
+        rows = await all(db, 'SELECT * FROM audit_log ORDER BY id DESC LIMIT ? OFFSET ?', [
+          limit,
+          offset,
+        ]);
       }
-      res.json(rows.map((r) => ({ ...r, meta: r.meta_json ? JSON.parse(r.meta_json) : null, meta_json: undefined })));
-    } catch (e) { next(e); }
+      res.json({
+        rows: rows.map((r) => ({
+          ...r,
+          meta: r.meta_json ? JSON.parse(r.meta_json) : null,
+          meta_json: undefined,
+        })),
+        total: totalRow?.c ?? 0,
+      });
+    } catch (e) {
+      next(e);
+    }
   });
 
   router.delete('/logs', async (req, res, next) => {
@@ -361,7 +396,18 @@ function createApiRouter(db, accountPool, botEngine) {
         message: accountId ? `Очищены логи аккаунта ${accountId}` : 'Очищена вся история логов',
       });
       res.json({ ok: true });
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  /** Заглушки до реализации после снятия трейд-бана — контракт пагинации уже готов. */
+  router.get('/sales', async (req, res) => {
+    res.json({ rows: [], total: 0 });
+  });
+
+  router.get('/compare', async (req, res) => {
+    res.json({ rows: [], total: 0 });
   });
 
   router.get('/dashboard', async (req, res, next) => {
@@ -387,7 +433,9 @@ function createApiRouter(db, accountPool, botEngine) {
         })),
         recentTrades,
       });
-    } catch (e) { next(e); }
+    } catch (e) {
+      next(e);
+    }
   });
 
   return router;

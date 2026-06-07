@@ -119,21 +119,23 @@ async function upsertItemDecision(db, row) {
   return itemId;
 }
 
-async function listItemSnapshots(db, { limit = 150, accountId } = {}) {
+async function listItemSnapshots(db, { limit = 150, offset = 0, accountId } = {}) {
   const cap = Math.min(Math.max(Number(limit) || 150, 1), 500);
+  const off = Math.max(Number(offset) || 0, 0);
   const sql = accountId
-    ? `SELECT * FROM market_item_snapshots WHERE account_id = ? ORDER BY updated_at DESC LIMIT ?`
-    : `SELECT * FROM market_item_snapshots ORDER BY updated_at DESC LIMIT ?`;
-  const params = accountId ? [accountId, cap] : [cap];
+    ? `SELECT * FROM market_item_snapshots WHERE account_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?`
+    : `SELECT * FROM market_item_snapshots ORDER BY updated_at DESC LIMIT ? OFFSET ?`;
+  const params = accountId ? [accountId, cap, off] : [cap, off];
   return all(db, sql, params);
 }
 
-async function listItemDecisions(db, { limit = 150, accountId } = {}) {
+async function listItemDecisions(db, { limit = 150, offset = 0, accountId } = {}) {
   const cap = Math.min(Math.max(Number(limit) || 150, 1), 500);
+  const off = Math.max(Number(offset) || 0, 0);
   const sql = accountId
-    ? `SELECT * FROM market_item_decisions WHERE account_id = ? ORDER BY updated_at DESC LIMIT ?`
-    : `SELECT * FROM market_item_decisions ORDER BY updated_at DESC LIMIT ?`;
-  const params = accountId ? [accountId, cap] : [cap];
+    ? `SELECT * FROM market_item_decisions WHERE account_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?`
+    : `SELECT * FROM market_item_decisions ORDER BY updated_at DESC LIMIT ? OFFSET ?`;
+  const params = accountId ? [accountId, cap, off] : [cap, off];
   return all(db, sql, params);
 }
 

@@ -1,14 +1,18 @@
-﻿import { useEffect, useState } from 'react';
+﻿import { useCallback } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { api } from '../api/client';
 import GlassCard from '../components/GlassCard';
+import TablePagination from '../components/TablePagination';
+import usePaginatedTable from '../hooks/usePaginatedTable';
 
 export default function History() {
-  const [trades, setTrades] = useState([]);
+  const fetchPage = useCallback(
+    (params) => api.getTrades(params),
+    [],
+  );
 
-  useEffect(() => {
-    api.getTrades(100).then(setTrades).catch(console.error);
-  }, []);
+  const { rows: trades, total, page, setPage, totalPages, pageSize } =
+    usePaginatedTable({ fetchPage });
 
   return (
     <>
@@ -64,9 +68,16 @@ export default function History() {
             </tbody>
           </table>
         </div>
-        {trades.length === 0 && (
+        {total === 0 && (
           <p className="py-4 text-sm text-white/40">Сделок пока нет.</p>
         )}
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
       </GlassCard>
     </>
   );

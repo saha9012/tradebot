@@ -1,22 +1,26 @@
-﻿import { useEffect, useState } from 'react';
+﻿import { useCallback, useState } from 'react';
 import { api } from '../api/client';
 import GlassCard from '../components/GlassCard';
+import TablePagination from '../components/TablePagination';
+import usePaginatedTable from '../hooks/usePaginatedTable';
 
 export default function Logs() {
-  const [logs, setLogs] = useState([]);
   const [accountId, setAccountId] = useState('');
   const [clearing, setClearing] = useState(false);
 
-  const load = () => {
-    const params = accountId ? { accountId, limit: 200 } : { limit: 200 };
-    api.getLogs(params).then(setLogs).catch(console.error);
-  };
+  const fetchPage = useCallback(
+    (params) => {
+      const q = accountId ? { ...params, accountId } : params;
+      return api.getLogs(q);
+    },
+    [accountId],
+  );
 
-  useEffect(() => {
-    load();
-    const t = setInterval(load, 15000);
-    return () => clearInterval(t);
-  }, [accountId]);
+  const { rows: logs, total, page, setPage, totalPages, pageSize, reload } = usePaginatedTable({
+    fetchPage,
+    deps: [accountId],
+    autoRefreshMs: 15000,
+  });
 
   const clearLogs = async () => {
     const msg = accountId
@@ -27,7 +31,8 @@ export default function Logs() {
     setClearing(true);
     try {
       await api.clearLogs(accountId || undefined);
-      load();
+      setPage(0);
+      await reload();
     } catch (e) {
       alert(e.message);
     } finally {
@@ -54,7 +59,7 @@ export default function Logs() {
             <option value="account-3">account-3</option>
           </select>
         </label>
-        <button type="button" className="btn" onClick={load}>
+        <button type="button" className="btn" onClick={reload}>
           Обновить
         </button>
         <button type="button" className="btn btn-danger" onClick={clearLogs} disabled={clearing}>
@@ -99,7 +104,14 @@ export default function Logs() {
             </tbody>
           </table>
         </div>
-        {logs.length === 0 && <p className="py-4 text-sm text-white/40">Записей пока нет.</p>}
+        {total === 0 && <p className="py-4 text-sm text-white/40">Записей пока нет.</p>}
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
       </GlassCard>
     </>
   );
