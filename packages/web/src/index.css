@@ -422,6 +422,91 @@ body {
   animation: marquee 32s linear infinite;
 }
 
+.animate-marquee-alt {
+  animation: marquee 36s linear infinite;
+}
+
+/* ——— Alt marquee (новая альтушка, не гот/эмо) ——— */
+
+.alt-marquee {
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 8, 14, 0.55);
+  backdrop-filter: blur(20px);
+  padding: 0.8rem 0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 24px rgba(0, 240, 255, 0.04);
+}
+
+.alt-marquee__inner {
+  display: flex;
+  width: max-content;
+  white-space: nowrap;
+}
+
+.alt-marquee__item {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 1.5rem;
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: lowercase;
+}
+
+.alt-marquee__item--ghost {
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.alt-marquee__item--cyan {
+  color: rgba(0, 240, 255, 0.55);
+  text-shadow: 0 0 14px rgba(0, 240, 255, 0.15);
+}
+
+.alt-marquee__item--lime {
+  color: rgba(212, 255, 0, 0.48);
+  text-shadow: 0 0 12px rgba(212, 255, 0, 0.1);
+}
+
+.alt-marquee__item--fuchsia {
+  color: rgba(255, 45, 146, 0.58);
+  text-shadow: 0 0 14px rgba(255, 45, 146, 0.14);
+}
+
+.alt-marquee__sep {
+  margin-left: 1.5rem;
+  font-family: var(--font-gothic);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1;
+  color: rgba(167, 139, 250, 0.72);
+  text-shadow:
+    0 0 12px rgba(139, 92, 246, 0.35),
+    0 0 4px rgba(0, 240, 255, 0.12);
+  transform: translateY(-0.05em);
+}
+
+@media (min-width: 768px) {
+  .alt-marquee__item {
+    font-size: 0.875rem;
+    padding: 0 1.75rem;
+  }
+
+  .alt-marquee__sep {
+    margin-left: 1.75rem;
+    font-size: 1.15rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee-alt {
+    animation: none;
+  }
+}
+
 /* ——— Bot UI components ——— */
 
 .page-title {
@@ -987,10 +1072,29 @@ code {
 }
 
 .horizon-hub-hint,
-.horizon-page-hint {
-  font-size: 0.68rem;
+.horizon-page-hint,
+.horizon-top-hint {
+  font-size: 0.75rem;
+  font-weight: 500;
   letter-spacing: 0.02em;
-  color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}
+
+.horizon-page-scroll--hint {
+  padding-top: 3.75rem;
+}
+
+@media (min-width: 768px) {
+  .horizon-page-scroll--hint {
+    padding-top: 4.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .horizon-page-scroll--hint {
+    padding-top: 4.75rem;
+  }
 }
 
 @keyframes horizon-center-breathe {

@@ -2,9 +2,14 @@ import { forwardRef, useImperativeHandle, useRef } from 'react';
 import { HORIZON_EDGES } from './horizonRoutes';
 
 function edgeStroke(edge) {
+  if (edge.tone === 'violet') return 'rgba(167, 139, 250, 0.68)';
   if (edge.dashed) return 'rgba(0, 240, 255, 0.42)';
   if (edge.dim) return 'rgba(0, 240, 255, 0.48)';
   return 'rgba(0, 240, 255, 0.78)';
+}
+
+function edgeGlowOpacity(edge) {
+  return edge.tone === 'violet' ? 0.32 : 0.35;
 }
 
 const HorizonEdges = forwardRef(function HorizonEdges(_props, ref) {
@@ -55,12 +60,30 @@ const HorizonEdges = forwardRef(function HorizonEdges(_props, ref) {
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+        <filter id="horizon-violet-glow" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation="2.6" result="blur" />
+          <feColorMatrix
+            in="blur"
+            type="matrix"
+            values="0 0 0 0 0.55
+                    0 0 0 0 0.35
+                    0 0 0 0 0.98
+                    0 0 0 0.62 0"
+            result="violetBlur"
+          />
+          <feMerge>
+            <feMergeNode in="violetBlur" />
+            <feMergeNode in="violetBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
 
       {HORIZON_EDGES.map((edge) => {
         const key = `${edge.from}-${edge.to}`;
         const stroke = edgeStroke(edge);
         const dash = edge.dashed ? '5 6' : undefined;
+        const glowFilter = edge.tone === 'violet' ? 'url(#horizon-violet-glow)' : 'url(#horizon-aurora-glow)';
 
         return (
           <g key={key}>
@@ -74,11 +97,11 @@ const HorizonEdges = forwardRef(function HorizonEdges(_props, ref) {
               y2={0}
               stroke={stroke}
               strokeWidth={2.4}
-              strokeOpacity={0.35}
+              strokeOpacity={edgeGlowOpacity(edge)}
               strokeLinecap="round"
               vectorEffect="nonScalingStroke"
               strokeDasharray={dash}
-              filter="url(#horizon-aurora-glow)"
+              filter={glowFilter}
             />
             <line
               ref={(el) => {
@@ -93,7 +116,7 @@ const HorizonEdges = forwardRef(function HorizonEdges(_props, ref) {
               strokeLinecap="round"
               vectorEffect="nonScalingStroke"
               strokeDasharray={dash}
-              filter="url(#horizon-aurora-glow)"
+              filter={glowFilter}
             />
           </g>
         );

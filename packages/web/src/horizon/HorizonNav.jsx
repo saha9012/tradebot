@@ -13,7 +13,7 @@ function isPathActive(nodePath, activePath) {
   return activePath === nodePath || activePath.startsWith(`${nodePath}/`);
 }
 
-export default function HorizonNav({ mode, activePath, onNodeClick, onBackdropDoubleClick }) {
+export default function HorizonNav({ mode, activePath, onNodeClick, onBackdropClick }) {
   const isHub = mode === 'hub';
   const hubPan = useHubPan(isHub);
   const pageParallax = useMouseParallax(!isHub, 0.42);
@@ -52,9 +52,9 @@ export default function HorizonNav({ mode, activePath, onNodeClick, onBackdropDo
     return () => cancelAnimationFrame(raf);
   }, [isHub]);
 
-  const handleLayerDoubleClick = (e) => {
+  const handleLayerClick = (e) => {
     if (!isHorizonBackdropTarget(e.target)) return;
-    onBackdropDoubleClick?.();
+    onBackdropClick?.();
   };
 
   return (
@@ -75,7 +75,7 @@ export default function HorizonNav({ mode, activePath, onNodeClick, onBackdropDo
           transformOrigin: '50% 48%',
           willChange: 'transform, filter, opacity',
         }}
-        onDoubleClick={isHub ? handleLayerDoubleClick : undefined}
+        onClick={isHub ? handleLayerClick : undefined}
       >
         <div
           ref={branchRef}
@@ -101,12 +101,6 @@ export default function HorizonNav({ mode, activePath, onNodeClick, onBackdropDo
             );
           })}
         </div>
-
-        {isHub && (
-          <p className="horizon-hub-hint pointer-events-none absolute bottom-6 left-1/2 z-30 -translate-x-1/2 text-center">
-            Клик по узлу — смена страницы на фоне · двойной клик по пустому месту — открыть страницу
-          </p>
-        )}
       </motion.div>
 
       <HorizonCenter mode={mode} activePath={activePath} />

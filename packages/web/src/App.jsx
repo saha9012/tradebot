@@ -14,6 +14,8 @@ import Logs from './pages/Logs';
 import Analytics from './pages/Analytics';
 import Decisions from './pages/Decisions';
 import FetchDebug from './pages/FetchDebug';
+import Sales from './pages/Sales';
+import Compare from './pages/Compare';
 
 export default function App() {
   const location = useLocation();
@@ -24,11 +26,11 @@ export default function App() {
     navigate(path);
   };
 
-  const handleHubBackdropDoubleClick = () => {
+  const handleHubBackdropClick = () => {
     enterPage();
   };
 
-  const handlePageBackdropDoubleClick = () => {
+  const handlePageBackdropClick = () => {
     enterHub();
   };
 
@@ -52,7 +54,13 @@ export default function App() {
       <div
         className={`relative z-10 flex-1 ${isHub ? 'h-screen overflow-hidden' : 'min-h-screen'}`}
       >
-        <PageShell mode={mode} onBackdropDoubleClick={handlePageBackdropDoubleClick}>
+        <p className="horizon-top-hint pointer-events-none fixed left-1/2 top-6 z-[25] w-full max-w-3xl -translate-x-1/2 px-6 text-center md:top-8 lg:top-10">
+          {isHub
+            ? 'Клик по узлу — смена страницы на фоне · клик по пустому месту — открыть страницу'
+            : 'Клик по пустому месту — вернуться к ветке'}
+        </p>
+
+        <PageShell mode={mode} onBackdropClick={handlePageBackdropClick}>
           <div className={isHub ? 'relative min-h-[calc(100vh-5rem)]' : 'relative'}>
             <AnimatePresence mode={isHub ? 'sync' : 'wait'} initial={false}>
               <PageTransition key={location.pathname} mode={mode}>
@@ -63,6 +71,8 @@ export default function App() {
                   <Route path="/debug-fetch" element={<FetchDebug />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/history" element={<HistoryPage />} />
+                  <Route path="/sales" element={<Sales />} />
+                  <Route path="/compare" element={<Compare />} />
                   <Route path="/logs" element={<Logs />} />
                 </Routes>
               </PageTransition>
@@ -74,7 +84,7 @@ export default function App() {
           mode={mode}
           activePath={location.pathname}
           onNodeClick={handleNodeClick}
-          onBackdropDoubleClick={handleHubBackdropDoubleClick}
+          onBackdropClick={handleHubBackdropClick}
         />
       </div>
     </div>

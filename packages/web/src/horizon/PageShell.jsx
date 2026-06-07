@@ -3,13 +3,13 @@ import StatusMarquee from '../components/StatusMarquee';
 import { isHorizonBackdropTarget } from './backdrop';
 import { HORIZON_TRANSITION } from './horizonRoutes';
 
-export default function PageShell({ mode, children, onBackdropDoubleClick }) {
+export default function PageShell({ mode, children, onBackdropClick }) {
   const isPage = mode === 'page';
 
-  const handleDoubleClick = (e) => {
+  const handleClick = (e) => {
     if (!isPage) return;
     if (!isHorizonBackdropTarget(e.target)) return;
-    onBackdropDoubleClick?.();
+    onBackdropClick?.();
   };
 
   return (
@@ -30,17 +30,12 @@ export default function PageShell({ mode, children, onBackdropDoubleClick }) {
         transformOrigin: '50% 50%',
         willChange: 'transform, filter, opacity',
       }}
-      onDoubleClick={handleDoubleClick}
+      onClick={handleClick}
     >
       {!isPage && <div className="horizon-page-vignette pointer-events-none absolute inset-0 z-[1]" aria-hidden />}
-      <div className="horizon-page-scroll relative z-[2] p-6 md:p-8 lg:p-10">
+      <div className="horizon-page-scroll horizon-page-scroll--hint relative z-[2] p-6 md:p-8 lg:p-10">
         <StatusMarquee />
         {children}
-        {isPage && (
-          <p className="horizon-page-hint pointer-events-none mt-8 text-center">
-            Двойной клик по пустому месту — вернуться к ветке
-          </p>
-        )}
       </div>
     </motion.div>
   );
