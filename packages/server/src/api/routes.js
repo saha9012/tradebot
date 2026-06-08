@@ -272,6 +272,42 @@ function createApiRouter(db, accountPool, botEngine) {
     }
   });
 
+  router.post('/debug/accounts/:id/inventory-scan', async (req, res, next) => {
+    try {
+      const { debugScanInventory } = require('../debug/marketDebug');
+      res.json(await debugScanInventory(botEngine, req.params.id));
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  router.post('/debug/accounts/:id/test-buy-order', async (req, res, next) => {
+    try {
+      const { debugTestBuyOrder } = require('../debug/marketDebug');
+      res.json(await debugTestBuyOrder(botEngine, req.params.id, req.body || {}));
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  router.post('/debug/accounts/:id/market-orders', async (req, res, next) => {
+    try {
+      const { debugFetchMarketOrders } = require('../debug/marketDebug');
+      res.json(await debugFetchMarketOrders(botEngine, req.params.id));
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  router.post('/debug/accounts/:id/sell-tick', async (req, res, next) => {
+    try {
+      const { debugRunSellTick } = require('../debug/marketDebug');
+      res.json(await debugRunSellTick(botEngine, req.params.id));
+    } catch (e) {
+      next(e);
+    }
+  });
+
   router.get('/analytics', async (req, res, next) => {
     try {
       const { listItemSnapshots, countItemSnapshots } = require('../db/itemStore');
@@ -401,13 +437,32 @@ function createApiRouter(db, accountPool, botEngine) {
     }
   });
 
-  /** Заглушки до реализации после снятия трейд-бана — контракт пагинации уже готов. */
-  router.get('/sales', async (req, res) => {
-    res.json({ rows: [], total: 0 });
+  router.get('/sales', async (req, res, next) => {
+    try {
+      const { listSales, countSales, mapSaleRow } = require('../db/salesStore');
+      const limit = Math.min(Number(req.query.limit) || 20, 500);
+      const offset = Math.max(Number(req.query.offset) || 0, 0);
+      const accountId = req.query.accountId || null;
+      const rows = await listSales(db, { limit, offset, accountId });
+      const total = await countSales(db, accountId);
+      res.json({ rows: rows.map(mapSaleRow), total });
+    } catch (e) {
+      next(e);
+    }
   });
 
-  router.get('/compare', async (req, res) => {
-    res.json({ rows: [], total: 0 });
+  router.get('/compare', async (req, res, next) => {
+    try {
+      const { listCompare, countCompare } = require('../db/salesStore');
+      const limit = Math.min(Number(req.query.limit) || 20, 500);
+      const offset = Math.max(Number(req.query.offset) || 0, 0);
+      const accountId = req.query.accountId || null;
+      const rows = await listCompare(db, { limit, offset, accountId });
+      const total = await countCompare(db, accountId);
+      res.json({ rows, total });
+    } catch (e) {
+      next(e);
+    }
   });
 
   router.get('/dashboard', async (req, res, next) => {
@@ -418,6 +473,8 @@ function createApiRouter(db, accountPool, botEngine) {
       const runningScan = await botEngine.isScanRunning();
       const runningSell = await botEngine.isSellRunning();
       const recentTrades = await all(db, 'SELECT * FROM trades ORDER BY id DESC LIMIT 5');
+      const { getCompareSummary } = require('../db/salesStore');
+      const compareSummary = await getCompareSummary(db);
       res.json({
         running: runningScan,
         runningScan,
@@ -426,6 +483,7 @@ function createApiRouter(db, accountPool, botEngine) {
         totalWallet: accounts.reduce((s, a) => s + (a.wallet_balance || 0), 0),
         pnlToday: pnlToday?.total || 0,
         pnlWeek: pnlWeek?.total || 0,
+        compareSummary,
         accounts: accounts.map((a) => ({
           ...a,
           enabled: Boolean(a.enabled),

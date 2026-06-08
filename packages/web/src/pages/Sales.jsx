@@ -1,14 +1,30 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { api } from '../api/client';
 import GlassCard from '../components/GlassCard';
 import TablePagination from '../components/TablePagination';
 import usePaginatedTable from '../hooks/usePaginatedTable';
 
+function fmtPrice(n) {
+  if (n == null || n === '') return '—';
+  return Number(n).toFixed(2);
+}
+
 export default function Sales() {
-  const fetchPage = useCallback((params) => api.getSales(params), []);
+  const [accountId, setAccountId] = useState('');
+
+  const fetchPage = useCallback(
+    (params) => {
+      const q = accountId ? { ...params, accountId } : params;
+      return api.getSales(q);
+    },
+    [accountId],
+  );
 
   const { rows, total, page, setPage, totalPages, pageSize, reload } = usePaginatedTable({
     fetchPage,
+    deps: [accountId],
+    autoRefreshMs: 15000,
   });
 
   return (
@@ -17,6 +33,19 @@ export default function Sales() {
         <span className="text-gradient">Продажа предметов</span>
       </h1>
       <div className="actions mb-6">
+        <label className="flex items-center gap-2 text-sm text-white/50">
+          Аккаунт
+          <select
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            className="min-w-[140px]"
+          >
+            <option value="">Все</option>
+            <option value="account-1">account-1</option>
+            <option value="account-2">account-2</option>
+            <option value="account-3">account-3</option>
+          </select>
+        </label>
         <button type="button" className="btn" onClick={reload}>
           Обновить
         </button>
@@ -26,12 +55,12 @@ export default function Sales() {
           <table>
             <thead>
               <tr>
-                <th>ID предмета</th>
-                <th>Предмет</th>
+                <th>Хеш</th>
+                <th>Название</th>
                 <th>Аккаунт</th>
-                <th>Цена, ₽</th>
-                <th>Статус</th>
-                <th>Обновлено</th>
+                <th>Цена sell, ₽</th>
+                <th>Дата</th>
+                <th>Steam</th>
               </tr>
             </thead>
             <tbody>
@@ -42,10 +71,24 @@ export default function Sales() {
                     {r.market_hash_name || '—'}
                   </td>
                   <td>{r.account_id || '—'}</td>
-                  <td>{r.price ?? '—'}</td>
-                  <td>{r.status || '—'}</td>
+                  <td>{fmtPrice(r.sell_price)}</td>
                   <td className="whitespace-nowrap text-white/60">
                     {r.updated_at ? new Date(r.updated_at).toLocaleString('ru') : '—'}
+                  </td>
+                  <td>
+                    {r.listing_url ? (
+                      <a
+                        href={r.listing_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300"
+                      >
+                        Лот
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                 </tr>
               ))}
@@ -54,7 +97,7 @@ export default function Sales() {
         </div>
         {total === 0 && (
           <p className="py-8 text-center text-sm text-white/40">
-            Раздел в подготовке — таблица и пагинация готовы. Данные появятся после снятия трейд-бана.
+            Пока пусто. Запустите режим продажи — бот подтянет предметы из инвентаря и обновит цену sell с маркета.
           </p>
         )}
         <TablePagination

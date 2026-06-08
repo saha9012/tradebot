@@ -1,4 +1,5 @@
 const { sellerProceeds, roundMoney } = require('./profitCalc');
+const { resolveBuyOrderQuantity } = require('./liquidityOrders');
 
 function evaluateBuy(config, item) {
   const { lowestListing, salesPerDay, marketHashName, highestBuyOrder } = item;
@@ -44,17 +45,27 @@ function evaluateBuy(config, item) {
     return skip('low_liquidity', marketHashName, { salesPerDay });
   }
 
+  const buyOrderQuantity = resolveBuyOrderQuantity(config, salesPerDay);
+  if (buyOrderQuantity <= 0) {
+    return skip('liquidity_tier', marketHashName, {
+      salesPerDay,
+      liquidityMin: config.liquidityMin,
+      liquidityMax: config.liquidityMax,
+    });
+  }
+
   const sellListingPrice = roundMoney(Math.max(0.03, lowestListing - config.undercutStep));
 
   return {
     action: 'buy',
     buyOrderPrice: buyPrice,
+    buyOrderQuantity,
     sellListingPrice,
     profit,
     profitPercent,
     reason: 'passes_all_filters',
     marketHashName,
-    meta: { buyPrice, lowestListing, netSell, highestBuyOrder },
+    meta: { buyPrice, lowestListing, netSell, highestBuyOrder, salesPerDay, buyOrderQuantity },
   };
 }
 

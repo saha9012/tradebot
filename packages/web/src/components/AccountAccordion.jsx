@@ -40,6 +40,37 @@ const FIELDS = [
     type: 'number',
     hint: 'Минимум продаж за 24ч (volume из priceoverview Steam). Если меньше — пропуск.',
   },
+];
+
+/** Парами: ордер сверху, порог ликвидности снизу. */
+const LIQUIDITY_ORDER_FIELDS = [
+  {
+    key: 'orderQtyMin',
+    label: 'Ордер 1 (мин)',
+    type: 'number',
+    hint: 'Сколько штук в buy-ордере на 1-м тире. Пример: 40.',
+  },
+  {
+    key: 'liquidityMin',
+    label: 'Ликвидность мин',
+    type: 'number',
+    hint: 'Нижняя граница 1-го тира (продаж/сутки). Ниже — не покупаем. Пример: 25.',
+  },
+  {
+    key: 'orderQtyMax',
+    label: 'Ордер 2 (макс)',
+    type: 'number',
+    hint: 'Сколько штук в buy-ордере на 2-м тире (высокая ликвидность). Пример: 90.',
+  },
+  {
+    key: 'liquidityMax',
+    label: 'Ликвидность макс',
+    type: 'number',
+    hint: 'С этого значения и выше — ордер 2. Между мин и макс — ордер 1. Пример: 80.',
+  },
+];
+
+const OTHER_FIELDS = [
   {
     key: 'undercutStep',
     label: 'Шаг перебива, ₽',
@@ -225,6 +256,58 @@ export default function AccountAccordion({ account, onUpdate }) {
           </div>
           <div className="form-grid">
             {FIELDS.map((f) => (
+              <FieldLabel key={f.key} label={f.label} hint={f.hint}>
+                <input
+                  type={f.type}
+                  step={f.step}
+                  value={config[f.key] ?? ''}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      [f.key]: f.type === 'number' ? Number(e.target.value) : e.target.value,
+                    })
+                  }
+                />
+              </FieldLabel>
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-white/40">Ликвидность и объём ордера</p>
+          <div className="form-liquidity-pairs">
+            <div className="form-liquidity-pair">
+              {LIQUIDITY_ORDER_FIELDS.slice(0, 2).map((f) => (
+                <FieldLabel key={f.key} label={f.label} hint={f.hint}>
+                  <input
+                    type={f.type}
+                    value={config[f.key] ?? ''}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        [f.key]: Number(e.target.value),
+                      })
+                    }
+                  />
+                </FieldLabel>
+              ))}
+            </div>
+            <div className="form-liquidity-pair">
+              {LIQUIDITY_ORDER_FIELDS.slice(2, 4).map((f) => (
+                <FieldLabel key={f.key} label={f.label} hint={f.hint}>
+                  <input
+                    type={f.type}
+                    value={config[f.key] ?? ''}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        [f.key]: Number(e.target.value),
+                      })
+                    }
+                  />
+                </FieldLabel>
+              ))}
+            </div>
+          </div>
+          <div className="form-grid">
+            {OTHER_FIELDS.map((f) => (
               <FieldLabel key={f.key} label={f.label} hint={f.hint}>
                 <input
                   type={f.type}

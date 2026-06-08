@@ -13,9 +13,9 @@ import HistoryPage from './pages/History';
 import Logs from './pages/Logs';
 import Analytics from './pages/Analytics';
 import Decisions from './pages/Decisions';
-import FetchDebug from './pages/FetchDebug';
 import Sales from './pages/Sales';
 import Compare from './pages/Compare';
+import FetchDebug from './pages/FetchDebug';
 
 export default function App() {
   const location = useLocation();

@@ -144,7 +144,7 @@ export default function Dashboard() {
         </button>
       </div>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-3">
+      <div className="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <GlassCard title="Кошелёк всего" delay={0.12}>
           <div className="stat-value text-gradient-lime">{data.totalWallet.toFixed(2)} ₽</div>
         </GlassCard>
@@ -157,6 +157,21 @@ export default function Dashboard() {
             {data.pnlToday.toFixed(2)} ₽
           </div>
           <div className="stat-label mt-2">7д: {(data.pnlWeek ?? 0).toFixed(2)} ₽</div>
+        </GlassCard>
+        <GlassCard title="Прибыль по инвентарю" delay={0.15}>
+          <div
+            className="stat-value"
+            style={{
+              color: (data.compareSummary?.projectedProfit ?? 0) >= 0 ? '#34d399' : '#f87171',
+            }}
+          >
+            {(data.compareSummary?.projectedProfit ?? 0) >= 0 ? '+' : ''}
+            {(data.compareSummary?.projectedProfit ?? 0).toFixed(2)} ₽
+          </div>
+          <div className="stat-label mt-2">
+            {data.compareSummary?.salesCount ?? 0} в продаже · ср.{' '}
+            {(data.compareSummary?.avgProfit ?? 0).toFixed(2)} ₽
+          </div>
         </GlassCard>
         <GlassCard title="Аккаунты" delay={0.16}>
           <div className="stat-value">

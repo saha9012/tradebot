@@ -73,6 +73,7 @@ function formatSkipReason(reason) {
     scam_skip: 'подозрительно высокая прибыль %',
     min_profit: 'мало прибыли',
     low_liquidity: 'мало продаж за сутки',
+    liquidity_tier: 'ликвидность ниже тира ордера',
     low_liquidity_week: 'мало продаж за неделю',
     no_price_data: 'нет цены с маркета',
     no_buy_order_data: 'нет ордербука (buy), только цена продажи',

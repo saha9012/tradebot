@@ -1,6 +1,7 @@
 ﻿const { get, run, logAudit, all } = require('../db/database');
 const { mergeStrategyConfig } = require('../strategy/defaults');
 const { formatSkipReason } = require('../util/auditMessages');
+const { isBuyOrderAccepted, buyOrderFailureMessage } = require('../market/buyOrderResult');
 const { upsertItemSnapshot, upsertItemDecision } = require('../db/itemStore');
 const { getItemId } = require('../util/itemId');
 const { MarketScanner } = require('../market/marketScanner');
@@ -30,7 +31,12 @@ class BotEngine {
     this.priceFetcher = new PriceFetcher(db, this.rateLimiter);
     this.marketScanner = new MarketScanner(this.priceFetcher, db);
     this.marketExecutor = new MarketExecutor(db, accountPool, this.rateLimiter);
-    this.inventorySeller = new InventorySeller(accountPool, this.priceFetcher, this.marketExecutor);
+    this.inventorySeller = new InventorySeller(
+      db,
+      accountPool,
+      this.priceFetcher,
+      this.marketExecutor
+    );
     this.relistScheduler = new RelistScheduler(this);
     this.scanInterval = null;
     this.sellInterval = null;
@@ -376,17 +382,40 @@ class BotEngine {
     }
 
     try {
-      const result = await this.inventorySeller.processAccount(account, config, session);
+      const raw = await this.inventorySeller.loadInventory(account, session);
+
+      const sync = await this.inventorySeller.syncInventoryPrices(account, session, raw);
+      if (sync.errors?.length) {
+        await logAudit(this.db, {
+          accountId: account.id,
+          level: 'warn',
+          action: 'sales_sync_warn',
+          message: sync.errors.slice(0, 3).join('; '),
+        });
+      }
+
+      const result = await this.inventorySeller.processAccount(account, config, session, raw);
 
       if (result.empty) return;
 
       if (result.lastItem) {
-        const { hashName, sellPrice, dryRun } = result.lastItem;
+        const { hashName, sellPrice, dryRun, itemId, appId, listingUrl } = result.lastItem;
         await run(
           this.db,
-          `INSERT INTO trades (account_id, game, action, market_hash_name, price, profit, dry_run)
-           VALUES (?, ?, 'sell', ?, ?, NULL, ?)`,
-          [account.id, account.game, hashName, sellPrice, dryRun ? 1 : 0]
+          `INSERT INTO trades (
+            account_id, game, action, market_hash_name, price, profit, dry_run,
+            listing_url, app_id, item_id
+          ) VALUES (?, ?, 'sell', ?, ?, NULL, ?, ?, ?, ?)`,
+          [
+            account.id,
+            account.game,
+            hashName,
+            sellPrice,
+            dryRun ? 1 : 0,
+            listingUrl || null,
+            appId ?? null,
+            itemId || getItemId(hashName),
+          ]
         );
         await logAudit(this.db, {
           accountId: account.id,
@@ -421,13 +450,32 @@ class BotEngine {
 
     if (decision.action === 'buy') {
       try {
+        const buyQty = decision.buyOrderQuantity ?? 1;
         const buyResult = await this.marketExecutor.createBuyOrder(
           account.id,
           item.appId,
           decision.marketHashName,
           decision.buyOrderPrice,
-          config
+          config,
+          buyQty
         );
+
+        if (!isBuyOrderAccepted(buyResult)) {
+          throw new Error(buyOrderFailureMessage(buyResult));
+        }
+
+        await logAudit(this.db, {
+          accountId: account.id,
+          action: dryRun ? 'dry_run_buy' : 'buy',
+          message: `${dryRun ? '[тест]' : ''} buy ${decision.marketHashName} ×${buyQty} @ ${decision.buyOrderPrice}₽`,
+          meta: {
+            ...decision,
+            buyResult,
+            buyQty,
+            listingUrl: extra.listingUrl,
+            priceTotalKopecks: buyResult.priceTotalKopecks,
+          },
+        });
 
         await run(
           this.db,
@@ -447,13 +495,6 @@ class BotEngine {
             extra.itemId ?? getItemId(decision.marketHashName),
           ]
         );
-
-        await logAudit(this.db, {
-          accountId: account.id,
-          action: dryRun ? 'dry_run_buy' : 'buy',
-          message: `${dryRun ? '[тест]' : ''} buy ${decision.marketHashName} @ ${decision.buyOrderPrice}₽`,
-          meta: { ...decision, buyResult, listingUrl: extra.listingUrl },
-        });
       } catch (err) {
         await logAudit(this.db, {
           accountId: account.id,

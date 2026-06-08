@@ -1,6 +1,12 @@
 const { run, all } = require('./database');
 
-async function logFetchStep(db, {
+/** Авто-лог скана/продажи отключён — не раздуваем БД. */
+async function logFetchStep() {
+  return;
+}
+
+/** Только ручные проверки со страницы «Отладка». */
+async function logManualDebugStep(db, {
   traceId,
   accountId = null,
   appId = null,
@@ -50,4 +56,9 @@ async function clearFetchDebugEvents(db) {
   await run(db, 'DELETE FROM fetch_debug_events');
 }
 
-module.exports = { logFetchStep, listFetchDebugEvents, clearFetchDebugEvents };
+module.exports = {
+  logFetchStep,
+  logManualDebugStep,
+  listFetchDebugEvents,
+  clearFetchDebugEvents,
+};

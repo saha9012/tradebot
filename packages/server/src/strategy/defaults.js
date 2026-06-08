@@ -5,6 +5,14 @@ const BASE = {
   maxProfitPercentHighTier: 24,
   highTierPriceFrom: 200,
   minLiquidity: 15,
+  /** Нижняя граница 1-го тира ликвидности (продаж/сутки). */
+  liquidityMin: 100,
+  /** Верхняя граница 1-го тира; при L >= этого значения — ордер 2. */
+  liquidityMax: 1000,
+  /** Кол-во в buy-ордере при liquidityMin <= L < liquidityMax. */
+  orderQtyMin: 25,
+  /** Кол-во в buy-ордере при L >= liquidityMax. */
+  orderQtyMax: 100,
   undercutStep: 0.01,
   balanceThreshold: 5000,
   maxSpendPerDay: 5000,

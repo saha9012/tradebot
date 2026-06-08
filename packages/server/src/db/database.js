@@ -139,6 +139,20 @@ async function initDatabase() {
     PRIMARY KEY (account_id, item_id)
   )`);
 
+  await run(db, `CREATE TABLE IF NOT EXISTS market_sales (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    asset_id TEXT NOT NULL,
+    game TEXT NOT NULL,
+    app_id INTEGER,
+    market_hash_name TEXT NOT NULL,
+    sell_price REAL,
+    listing_url TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(account_id, asset_id)
+  )`);
+
   await run(db, `CREATE TABLE IF NOT EXISTS item_price_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id TEXT NOT NULL DEFAULT '',

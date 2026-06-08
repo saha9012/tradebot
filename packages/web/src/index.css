@@ -724,6 +724,65 @@ body {
   margin-top: 1rem;
 }
 
+.form-liquidity-pairs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 1rem 1.25rem;
+  max-width: 520px;
+  margin-top: 0.5rem;
+}
+
+.form-liquidity-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.form-liquidity-pair input {
+  width: 100%;
+}
+
+@media (max-width: 520px) {
+  .form-liquidity-pairs {
+    grid-template-columns: 1fr;
+    max-width: 280px;
+  }
+}
+
+.debug-actions-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 420px;
+}
+
+.debug-actions-stack select,
+.debug-actions-stack input {
+  width: 100%;
+}
+
+.debug-buy-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.debug-log-detail {
+  margin: 0;
+  padding: 0.75rem;
+  max-height: 320px;
+  overflow: auto;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 0.5rem;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 label.field-label {
   display: flex;
   flex-direction: column;

@@ -1,4 +1,6 @@
 const SteamTotp = require('steam-totp');
+const { isBuyOrderAccepted } = require('./buyOrderResult');
+const { postCreateBuyOrder } = require('./steamBuyOrder');
 
 class MarketExecutor {
   constructor(db, accountPool, rateLimiter) {
@@ -29,12 +31,15 @@ class MarketExecutor {
     return session;
   }
 
-  async createBuyOrder(accountId, appId, marketHashName, price, config) {
+  async createBuyOrder(accountId, appId, marketHashName, price, config, amount = 1) {
+    const qty = Math.max(1, Math.floor(Number(amount) || 1));
+
     if (config.dryRun) {
-      return { dryRun: true, action: 'createBuyOrder', marketHashName, price };
+      return { dryRun: true, action: 'createBuyOrder', marketHashName, price, amount: qty };
     }
 
-    if (!this.canSpend(accountId, config, price)) {
+    const spend = price * qty;
+    if (!this.canSpend(accountId, config, spend)) {
       throw new Error('Daily spend limit reached');
     }
 
@@ -42,12 +47,14 @@ class MarketExecutor {
     if (!session.market) throw new Error('steam-market not initialized — re-login');
 
     return this.rateLimiter.schedule(async () => {
-      const result = await session.market.createBuyOrder(appId, {
+      const result = await postCreateBuyOrder(
+        session.market,
+        appId,
         marketHashName,
-        price: Math.round(price * 100),
-        amount: 1,
-      });
-      if (result.success) this.addDailySpend(accountId, price);
+        price,
+        qty
+      );
+      if (isBuyOrderAccepted(result)) this.addDailySpend(accountId, spend);
       return result;
     });
   }

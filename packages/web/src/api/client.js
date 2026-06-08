@@ -65,4 +65,15 @@ export const api = {
     return request(`/debug/fetches?${q}`);
   },
   clearFetchDebug: () => request('/debug/fetches', { method: 'DELETE' }),
+  debugInventoryScan: (accountId) =>
+    request(`/debug/accounts/${encodeURIComponent(accountId)}/inventory-scan`, { method: 'POST' }),
+  debugTestBuyOrder: (accountId, body) =>
+    request(`/debug/accounts/${encodeURIComponent(accountId)}/test-buy-order`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  debugMarketOrders: (accountId) =>
+    request(`/debug/accounts/${encodeURIComponent(accountId)}/market-orders`, { method: 'POST' }),
+  debugSellTick: (accountId) =>
+    request(`/debug/accounts/${encodeURIComponent(accountId)}/sell-tick`, { method: 'POST' }),
 };
