@@ -78,24 +78,26 @@ const OTHER_FIELDS = [
     step: '0.01',
     hint: 'На сколько ₽ перебивать конкурента: buy +0.01, sell −0.01 от лучшей цены.',
   },
+];
+
+const OPTIONAL_LIMIT_FIELDS = [
   {
+    enableKey: 'balanceThresholdEnabled',
     key: 'balanceThreshold',
     label: 'Порог баланса, ₽',
     type: 'number',
-    hint: 'Пока баланс кошелька ниже — Dota-аккаунт торгует. Выше порога бот по Dota отдыхает (до настройки CS2).',
+    hint: 'Включи галочку: при балансе ≥ порога Dota-аккаунт не сканирует. Выключено — порог не действует.',
   },
   {
+    enableKey: 'maxSpendPerDayEnabled',
     key: 'maxSpendPerDay',
     label: 'Макс. траты в день, ₽',
     type: 'number',
-    hint: 'Лимит расходов на покупки за сутки на этот аккаунт (только при выключенном Dry run).',
+    hint: 'Включи галочку: лимит расходов на покупки за сутки. Выключено — без лимита.',
   },
-  {
-    key: 'maxBuyOrders',
-    label: 'Макс. покупок за цикл',
-    type: 'number',
-    hint: 'Сколько предметов максимум обработать за один проход бота (~раз в минуту).',
-  },
+];
+
+const RELIST_FIELDS = [
   {
     key: 'relistMorning',
     label: 'Перевыставление: утро',
@@ -308,6 +310,51 @@ export default function AccountAccordion({ account, onUpdate }) {
           </div>
           <div className="form-grid">
             {OTHER_FIELDS.map((f) => (
+              <FieldLabel key={f.key} label={f.label} hint={f.hint}>
+                <input
+                  type={f.type}
+                  step={f.step}
+                  value={config[f.key] ?? ''}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      [f.key]: f.type === 'number' ? Number(e.target.value) : e.target.value,
+                    })
+                  }
+                />
+              </FieldLabel>
+            ))}
+          </div>
+          <div className="form-optional-limits">
+            {OPTIONAL_LIMIT_FIELDS.map((f) => (
+              <div key={f.key} className="form-optional-limit">
+                <label className="form-limit-enable">
+                  <input
+                    type="checkbox"
+                    checked={!!config[f.enableKey]}
+                    onChange={(e) =>
+                      setConfig({ ...config, [f.enableKey]: e.target.checked })
+                    }
+                  />
+                </label>
+                <FieldLabel label={f.label} hint={f.hint}>
+                  <input
+                    type={f.type}
+                    value={config[f.key] ?? ''}
+                    disabled={!config[f.enableKey]}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        [f.key]: Number(e.target.value),
+                      })
+                    }
+                  />
+                </FieldLabel>
+              </div>
+            ))}
+          </div>
+          <div className="form-grid">
+            {RELIST_FIELDS.map((f) => (
               <FieldLabel key={f.key} label={f.label} hint={f.hint}>
                 <input
                   type={f.type}

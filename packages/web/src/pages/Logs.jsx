@@ -1,8 +1,65 @@
 ﻿import { useCallback, useState } from 'react';
 import { api } from '../api/client';
-import GlassCard from '../components/GlassCard';
 import TablePagination from '../components/TablePagination';
 import usePaginatedTable from '../hooks/usePaginatedTable';
+import { parseMarketCheckMessage, actionLabel } from '../util/parseLogMessage';
+
+const LOG_GRID = '10.5rem 6.25rem 3.75rem 8.75rem 1px minmax(20rem, 1fr)';
+
+function LogBody({ log, parsed }) {
+  if (parsed?.kind === 'buy') {
+    return (
+      <div className="log-feed-details">
+        <div className="log-feed-item">{parsed.item}</div>
+        <div className="log-feed-detail">
+          buy {parsed.buyWas} → {parsed.buyAt} · sell {parsed.sell} · +{parsed.profit}₽ · {parsed.source} ·{' '}
+          {parsed.liquidity}
+        </div>
+      </div>
+    );
+  }
+
+  if (parsed?.kind === 'skip') {
+    return (
+      <div className="log-feed-details">
+        <div className="log-feed-item">{parsed.item}</div>
+        <div className="log-feed-detail">
+          buy {parsed.buyWas} sell {parsed.sell} · {parsed.reason} · {parsed.source} · {parsed.liquidity}
+        </div>
+      </div>
+    );
+  }
+
+  return <div className="log-feed-details log-feed-details--plain">{log.message || '—'}</div>;
+}
+
+function LogRow({ log }) {
+  const parsed = log.action === 'market_check' ? parseMarketCheckMessage(log.message) : null;
+  const time = new Date(log.created_at).toLocaleString('ru');
+  const act = actionLabel(log.action);
+  const level = (log.level || 'info').toLowerCase();
+  const levelClass =
+    log.level === 'error'
+      ? 'log-feed-level--error'
+      : log.level === 'warn'
+        ? 'log-feed-level--warn'
+        : '';
+
+  return (
+    <div className="log-feed-row" style={{ gridTemplateColumns: LOG_GRID }}>
+      <div className="log-feed-cell log-feed-time">{time}</div>
+      <div className="log-feed-cell log-feed-account">{log.account_id || '—'}</div>
+      <div className="log-feed-cell">
+        <span className={`log-feed-level ${levelClass}`}>{level}</span>
+      </div>
+      <div className="log-feed-cell log-feed-action">{act}</div>
+      <div className="log-feed-divider" aria-hidden />
+      <div className="log-feed-cell log-feed-cell--item">
+        <LogBody log={log} parsed={parsed} />
+      </div>
+    </div>
+  );
+}
 
 export default function Logs() {
   const [accountId, setAccountId] = useState('');
@@ -41,7 +98,7 @@ export default function Logs() {
   };
 
   return (
-    <>
+    <div className="logs-page">
       <h1 className="page-title">
         <span className="text-gradient">Логи</span>
       </h1>
@@ -66,53 +123,25 @@ export default function Logs() {
           {clearing ? '…' : 'Очистить историю'}
         </button>
       </div>
-      <GlassCard>
-        <div className="overflow-x-auto">
-          <table>
-            <thead>
-              <tr>
-                <th>Время</th>
-                <th>Аккаунт</th>
-                <th>Уровень</th>
-                <th>Действие</th>
-                <th>Сообщение</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((l) => (
-                <tr key={l.id}>
-                  <td className="whitespace-nowrap">{new Date(l.created_at).toLocaleString('ru')}</td>
-                  <td>{l.account_id || '—'}</td>
-                  <td>
-                    <span
-                      className="badge"
-                      style={
-                        l.level === 'error'
-                          ? { borderColor: '#f87171', color: '#f87171' }
-                          : l.level === 'warn'
-                            ? { borderColor: '#fbbf24', color: '#fbbf24' }
-                            : undefined
-                      }
-                    >
-                      {l.level}
-                    </span>
-                  </td>
-                  <td className="font-mono text-xs text-cyan-300/90">{l.action}</td>
-                  <td className="max-w-md text-white/80">{l.message || '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+      <div className="log-feed-scroll">
+        <div className="log-feed">
+          {logs.map((l) => (
+            <LogRow key={l.id} log={l} />
+          ))}
+          {total === 0 && (
+            <p className="py-10 text-center text-sm text-white/40">Записей пока нет.</p>
+          )}
         </div>
-        {total === 0 && <p className="py-4 text-sm text-white/40">Записей пока нет.</p>}
-        <TablePagination
-          page={page}
-          totalPages={totalPages}
-          total={total}
-          pageSize={pageSize}
-          onPageChange={setPage}
-        />
-      </GlassCard>
-    </>
+      </div>
+
+      <TablePagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={pageSize}
+        onPageChange={setPage}
+      />
+    </div>
   );
 }

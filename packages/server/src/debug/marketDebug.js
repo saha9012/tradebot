@@ -124,8 +124,16 @@ async function debugTestBuyOrder(botEngine, accountId, body = {}) {
   });
 
   try {
+    const session = botEngine.accountPool.getSession(accountId);
+    const confirmHandler =
+      session?.credentials?.identitySecret
+        ? async (objectId) => {
+            await botEngine.marketExecutor.acceptBuyConfirmation(session, objectId);
+          }
+        : null;
+
     const result = await botEngine.rateLimiter.schedule(() =>
-      postCreateBuyOrder(session.market, appId, marketHashName, price, quantity)
+      postCreateBuyOrder(session.market, appId, marketHashName, price, quantity, confirmHandler)
     );
 
     const accepted = isBuyOrderAccepted(result);

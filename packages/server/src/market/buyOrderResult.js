@@ -1,3 +1,11 @@
+function needsBuyConfirmation(result) {
+  const d = result?._data;
+  if (!d) return false;
+  if (d.need_confirmation === true) return true;
+  if (d.success === 22) return true;
+  return false;
+}
+
 /** Steam: success === 1 и есть buy_orderid. Библиотека steam-market делает Boolean(2) === true — ловушка. */
 function isBuyOrderAccepted(result) {
   if (result?.dryRun) return true;
@@ -18,6 +26,7 @@ function buyOrderFailureMessage(result) {
   if (msg) return msg;
   if (code === 15) return 'Аккаунт не может пользоваться Community Market (трейд-бан / ограничение)';
   if (code === 2) return 'Цена ордера ниже минимума Steam для этого предмета';
+  if (code === 22) return 'Нужно подтверждение Steam Guard (мобильное)';
   if (code != null && code !== 1) return `Steam отклонил ордер (success=${code})`;
   return 'Ордер не создан';
 }
@@ -32,7 +41,15 @@ function buyOrderFailureHint(result) {
   if (code === 2 || msg.includes('minimum')) {
     return 'Цена слишком низкая — подними до минимума Steam для предмета.';
   }
+  if (code === 22 || msg.includes('confirmation')) {
+    return 'Требуется подтверждение Guard — бот должен принять автоматически при наличии identity_secret.';
+  }
   return 'Смотри steamMessage и steamSuccessCode.';
 }
 
-module.exports = { isBuyOrderAccepted, buyOrderFailureMessage, buyOrderFailureHint };
+module.exports = {
+  isBuyOrderAccepted,
+  buyOrderFailureMessage,
+  buyOrderFailureHint,
+  needsBuyConfirmation,
+};

@@ -21,6 +21,7 @@ class MarketExecutor {
   }
 
   canSpend(accountId, config, amount) {
+    if (!config.maxSpendPerDayEnabled) return true;
     const max = config.maxSpendPerDay ?? 5000;
     return this.getDailySpend(accountId) + amount <= max;
   }
@@ -47,12 +48,19 @@ class MarketExecutor {
     if (!session.market) throw new Error('steam-market not initialized — re-login');
 
     return this.rateLimiter.schedule(async () => {
+      const confirmHandler = session.credentials?.identitySecret
+        ? async (objectId) => {
+            await this.acceptBuyConfirmation(session, objectId);
+          }
+        : null;
+
       const result = await postCreateBuyOrder(
         session.market,
         appId,
         marketHashName,
         price,
-        qty
+        qty,
+        confirmHandler
       );
       if (isBuyOrderAccepted(result)) this.addDailySpend(accountId, spend);
       return result;
@@ -79,6 +87,37 @@ class MarketExecutor {
         await this.acceptConfirmations(session);
       }
       return result;
+    });
+  }
+
+  async acceptBuyConfirmation(session, objectId) {
+    if (!session.community || !session.credentials.identitySecret) return;
+
+    if (objectId) {
+      const delays = [0, 800, 1200, 1600, 2000];
+      let lastErr;
+      for (const delay of delays) {
+        if (delay) await new Promise((r) => setTimeout(r, delay));
+        try {
+          await this.acceptConfirmationForObject(session, objectId);
+          return;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw lastErr || new Error('Не удалось подтвердить покупку в Steam Guard');
+    }
+
+    await this.acceptConfirmations(session);
+  }
+
+  acceptConfirmationForObject(session, objectId) {
+    return new Promise((resolve, reject) => {
+      session.community.acceptConfirmationForObject(
+        session.credentials.identitySecret,
+        objectId,
+        (err) => (err ? reject(err) : resolve())
+      );
     });
   }
 

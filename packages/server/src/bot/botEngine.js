@@ -208,7 +208,11 @@ class BotEngine {
       if (!config.enabled) continue;
 
       const wallet = acc.wallet_balance ?? 0;
-      if (acc.game === 'dota' && wallet >= config.balanceThreshold) {
+      if (
+        acc.game === 'dota' &&
+        config.balanceThresholdEnabled &&
+        wallet >= config.balanceThreshold
+      ) {
         await logAudit(this.db, {
           accountId: acc.id,
           action: 'balance_threshold',

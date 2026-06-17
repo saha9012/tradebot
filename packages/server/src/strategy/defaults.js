@@ -16,7 +16,10 @@ const BASE = {
   undercutStep: 0.01,
   balanceThreshold: 5000,
   maxSpendPerDay: 5000,
-  maxBuyOrders: 10,
+  /** Галочка в UI: пауза скана Dota при балансе ≥ порога. */
+  balanceThresholdEnabled: false,
+  /** Галочка в UI: лимит трат на покупки за сутки. */
+  maxSpendPerDayEnabled: false,
   /** Сколько лотов за один тик сканирования обогащать ценами (меньше = быстрее тик). */
   scanItemsPerTick: 1,
   maxSellPerTick: 3,
