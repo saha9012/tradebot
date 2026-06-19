@@ -205,21 +205,6 @@ class BotEngine {
 
       for (const acc of accounts) {
       const config = mergeStrategyConfig(acc.game, JSON.parse(acc.config_json));
-      if (!config.enabled) continue;
-
-      const wallet = acc.wallet_balance ?? 0;
-      if (
-        acc.game === 'dota' &&
-        config.balanceThresholdEnabled &&
-        wallet >= config.balanceThreshold
-      ) {
-        await logAudit(this.db, {
-          accountId: acc.id,
-          action: 'balance_threshold',
-          message: `Баланс ${wallet} ₽ ≥ порога ${config.balanceThreshold} ₽ — поиск отдыхает`,
-        });
-        continue;
-      }
 
       try {
         await this.processAccountScan(acc, config);
@@ -249,7 +234,6 @@ class BotEngine {
     try {
       for (const acc of accounts) {
         const config = mergeStrategyConfig(acc.game, JSON.parse(acc.config_json));
-        if (!config.enabled) continue;
         await this.processAccountSell(acc, config);
       }
     } finally {
@@ -349,7 +333,7 @@ class BotEngine {
       } else if (decision.action === 'buy') {
         shortMessage = `✓ ${hashName} | buy ${buyStr} → ${decision.buyOrderPrice} | sell ${sellStr} | +${decision.profit}₽ | ${priceSource} | ${liq}`;
       } else {
-        shortMessage = `✗ ${hashName} | buy ${buyStr} sell ${sellStr} | ${formatSkipReason(decision.reason)} | ${priceSource} | ${liq}`;
+        shortMessage = `✗ ${hashName} | buy ${buyStr} sell ${sellStr} | ${formatSkipReason(decision.reason, decision.meta)} | ${priceSource} | ${liq}`;
       }
 
       await logAudit(this.db, {

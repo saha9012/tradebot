@@ -32,6 +32,9 @@ const ACTION_RU = {
   relist_done: 'перевыставление_готово',
   relist_failed: 'ошибка_перевыставления',
   max_item_price: 'пропуск_цена',
+  profit_percent_low: 'пропуск_прибыль_низ',
+  profit_percent_high: 'пропуск_прибыль_высок',
+  cs2_filter_excluded: 'пропуск_cs2_фильтр',
   high_tier_profit_cap: 'пропуск_прибыль_дорого',
   scam_skip: 'пропуск_скам',
   min_profit: 'пропуск_мало_прибыли',
@@ -66,12 +69,18 @@ function actionRu(action) {
   return ACTION_RU[action] || action;
 }
 
-function formatSkipReason(reason) {
+function formatSkipReason(reason, meta = {}) {
+  if (reason === 'cs2_filter_excluded' && meta.categoryLabel) {
+    return `фильтр CS2: ${meta.categoryLabel}`;
+  }
   const map = {
     max_item_price: 'цена выше лимита',
+    profit_percent_low: 'прибыль % ниже минимума',
+    profit_percent_high: 'прибыль % выше максимума',
+    cs2_filter_excluded: 'исключено фильтром CS2',
     high_tier_profit_cap: 'слишком высокая прибыль % (дорогой лот)',
     scam_skip: 'подозрительно высокая прибыль %',
-    min_profit: 'мало прибыли',
+    min_profit: 'мало прибыли (₽)',
     low_liquidity: 'мало продаж за сутки',
     liquidity_tier: 'ликвидность ниже тира ордера',
     low_liquidity_week: 'мало продаж за неделю',

@@ -25,19 +25,25 @@ function evaluateBuy(config, item) {
   const profitPercent = buyPrice > 0 ? roundMoney((profit / buyPrice) * 100) : 0;
 
   if (buyPrice > config.maxItemPrice) return skip('max_item_price', marketHashName, { buyPrice });
-  if (buyPrice >= config.highTierPriceFrom && profitPercent > config.maxProfitPercentHighTier) {
-    return skip('high_tier_profit_cap', marketHashName, { profitPercent, profit, buyPrice, netSell });
-  }
-  if (profitPercent > config.maxProfitPercent) {
-    return skip('scam_skip', marketHashName, { profitPercent, profit, buyPrice, netSell });
-  }
-  if (profit <= config.minProfitAbsolute) {
-    return skip('min_profit', marketHashName, {
+
+  const minPct = config.minProfitPercent ?? 20;
+  const maxPct = config.maxProfitPercent ?? 40;
+  if (profitPercent < minPct) {
+    return skip('profit_percent_low', marketHashName, {
+      profitPercent,
       profit,
       buyPrice,
-      lowestListing,
       netSell,
-      feePercent: config.feePercent,
+      minProfitPercent: minPct,
+    });
+  }
+  if (profitPercent > maxPct) {
+    return skip('profit_percent_high', marketHashName, {
+      profitPercent,
+      profit,
+      buyPrice,
+      netSell,
+      maxProfitPercent: maxPct,
     });
   }
 

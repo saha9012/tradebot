@@ -1,16 +1,18 @@
 const { evaluateBuy } = require('./dotaStrategy');
-const { DEFAULT_STRATEGY } = require('./defaults');
+const { checkCs2ItemAllowed, cs2FilterSkip } = require('./cs2Filters');
 
 function evaluate(game, config, item) {
   switch (game) {
-    case 'dota':
-      return evaluateBuy(config, item);
-    case 'cs2':
-    case 'rust':
-      if (!config.enabled) {
-        return { action: 'skip', reason: 'lane_disabled', marketHashName: item.marketHashName };
+    case 'cs2': {
+      const filter = checkCs2ItemAllowed(config, item.marketHashName);
+      if (!filter.allowed) {
+        return cs2FilterSkip(item.marketHashName, filter);
       }
-      return evaluateBuy({ ...DEFAULT_STRATEGY[game], ...config }, item);
+      return evaluateBuy(config, item);
+    }
+    case 'dota':
+    case 'rust':
+      return evaluateBuy(config, item);
     default:
       return { action: 'skip', reason: 'unknown_game', marketHashName: item.marketHashName };
   }

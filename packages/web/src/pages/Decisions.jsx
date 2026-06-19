@@ -12,9 +12,11 @@ function fmt(n) {
 
 const SKIP_LABELS = {
   max_item_price: 'цена выше лимита',
-  high_tier_profit_cap: 'слишком высокая прибыль %',
+  profit_percent_low: 'прибыль % ниже минимума',
+  profit_percent_high: 'прибыль % выше максимума',
+  cs2_filter_excluded: 'фильтр CS2',
   scam_skip: 'подозрительная прибыль %',
-  min_profit: 'мало прибыли',
+  min_profit: 'мало прибыли (₽)',
   low_liquidity: 'мало продаж за сутки',
   no_price_data: 'нет цены',
   no_buy_order_data: 'нет buy',

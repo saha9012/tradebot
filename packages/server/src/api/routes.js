@@ -147,6 +147,19 @@ function createApiRouter(db, accountPool, botEngine) {
       if (!updates.length) return res.status(400).json({ error: 'Nothing to update' });
       params.push(req.params.id);
       await run(db, `UPDATE accounts SET ${updates.join(', ')} WHERE id = ?`, params);
+      if (enabled !== undefined) {
+        const row = await get(db, 'SELECT config_json FROM strategy_config WHERE account_id = ?', [
+          req.params.id,
+        ]);
+        if (row?.config_json) {
+          const cfg = JSON.parse(row.config_json);
+          cfg.enabled = Boolean(enabled);
+          await run(db, `UPDATE strategy_config SET config_json = ?, updated_at = datetime('now') WHERE account_id = ?`, [
+            JSON.stringify(cfg),
+            req.params.id,
+          ]);
+        }
+      }
       res.json({ ok: true });
     } catch (e) { next(e); }
   });

@@ -237,7 +237,29 @@ async function initDatabase() {
   const { purgeInvalidItemNameIds } = require('./itemNameIdStore');
   await purgeInvalidItemNameIds(db);
 
+  await syncStrategyWithAccountEnabled(db);
+
   return db;
+}
+
+/** Включённый аккаунт не должен молча пропускаться из‑за strategy.enabled=false (CS2/Rust по умолчанию). */
+async function syncStrategyWithAccountEnabled(db) {
+  const rows = await all(
+    db,
+    `SELECT a.id, a.enabled, s.config_json FROM accounts a
+     JOIN strategy_config s ON s.account_id = a.id`
+  );
+  for (const row of rows) {
+    const cfg = JSON.parse(row.config_json);
+    const want = Boolean(row.enabled);
+    if (cfg.enabled !== want) {
+      cfg.enabled = want;
+      await run(db, `UPDATE strategy_config SET config_json = ?, updated_at = datetime('now') WHERE account_id = ?`, [
+        JSON.stringify(cfg),
+        row.id,
+      ]);
+    }
+  }
 }
 
 async function migrateTradeColumns(db) {
