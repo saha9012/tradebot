@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --base /",
     "build": "vite build",
     "build:pages": "vite build && node -e \"const fs=require('fs');const p='dist/index.html';fs.copyFileSync(p,'dist/404.html')\"",
     "preview": "vite preview",

@@ -30,7 +30,7 @@ const BASE = {
 };
 
 const DEFAULT_STRATEGY = {
-  dota: { ...BASE, game: 'dota', enabled: true, maxItemPrice: 200 },
+  dota: { ...BASE, game: 'dota', enabled: true, maxItemPrice: 200, holdDays: 7 },
   cs2: { ...BASE, game: 'cs2', enabled: false, maxItemPrice: 500, holdDays: 7 },
   rust: { ...BASE, game: 'rust', enabled: false, maxItemPrice: 500, targetMarginPercent: 20 },
 };
