@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { CS2_FILTER_GROUPS } from '../constants/cs2Filters';
+import { getVoidStackMount } from '../util/voidStackMount';
 
 export default function Cs2FiltersDrawer({ open, filters, onChange, onClose, onSave }) {
   useEffect(() => {
@@ -85,6 +86,6 @@ export default function Cs2FiltersDrawer({ open, filters, onChange, onClose, onS
         </button>
       </div>
     </aside>,
-    document.body
+    getVoidStackMount()
   );
 }

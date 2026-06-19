@@ -40,11 +40,13 @@ export default function App() {
     const overflow = isHub ? 'hidden' : '';
     document.documentElement.style.overflow = overflow;
     document.body.style.overflow = overflow;
+    document.body.dataset.horizonMode = mode;
     return () => {
       document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
+      delete document.body.dataset.horizonMode;
     };
-  }, [isHub]);
+  }, [isHub, mode]);
 
   return (
     <div className="noise relative isolate flex min-h-screen text-white">
@@ -79,6 +81,8 @@ export default function App() {
             </AnimatePresence>
           </div>
         </PageShell>
+
+        <div id="void-stack-mount" className="void-stack-mount" aria-hidden={false} />
 
         <HorizonNav
           mode={mode}

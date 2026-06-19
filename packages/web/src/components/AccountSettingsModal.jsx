@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import FieldLabel from './FieldLabel';
 import Cs2FiltersDrawer from './Cs2FiltersDrawer';
 import { mergeCs2Filters } from '../constants/cs2Filters';
+import { getVoidStackMount } from '../util/voidStackMount';
 
 const TABS = [
   { id: 'profit', label: 'Прибыль', icon: Percent },
@@ -236,6 +237,6 @@ export default function AccountSettingsModal({ account, open, onClose, onUpdate 
         />
       )}
     </>,
-    document.body
+    getVoidStackMount()
   );
 }
